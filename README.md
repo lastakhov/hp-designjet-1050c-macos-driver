@@ -56,6 +56,19 @@ The PPD references it by absolute path.
 Apple's CUPS build removed `-m raw`, so the raw queue uses a minimal PPD
 whose `cupsFilter2` filter field is `-` (no conversion) instead.
 
+`examples/` holds a worked A3 architectural drawing — elevation, floor
+plan, dimensions and title block — as native HP-GL/2, together with the
+script that generates it. It is a quick way to check the vector path, and
+it shows the `RO90`/`IP` picture header this plotter needs (see the axis
+note under *Hardware quirks*). Confirmed printing correctly on the device:
+
+```bash
+lp -d HP-DesignJet-1050C-Raw examples/house_a3.plt
+```
+
+The whole drawing is 2 KB. The same page through the rasterising queue is
+around 100 KB, and its lines are drawn rather than built out of dots.
+
 ## Options
 
 - **Media size** — every size has a normal and a *Landscape (wide edge
@@ -113,6 +126,13 @@ These cost real time to find, and the code comments point back here.
   Deriving them from the raster tells the printer the paper is smaller than
   it is; it then applies its own margins on top of the already-inset area
   and clips the bottom.
+- **The X axis runs along the *longer* edge of the plot.** A portrait
+  drawing sent as native HP-GL/2 therefore comes out turned 90° clockwise.
+  `RO90` rotates the coordinate system back, and `IP` has to follow it —
+  `P1`/`P2` keep their old coordinates through a rotation and would
+  otherwise sit off the page. This only bites the raw queue; the
+  rasterising queue is unaffected, because macOS lays the page out and the
+  driver ships a finished bitmap. See `examples/`.
 - **The stock CUPS socket backend is slow to this printer.** Its small,
   unbuffered writes hit the classic Nagle/delayed-ACK stall against the old
   JetDirect TCP stack. The filter therefore opens its own connection to
