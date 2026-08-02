@@ -89,6 +89,10 @@ around 100 KB, and its lines are drawn rather than built out of dots.
   stays pure black ink at every setting. `KCMY` only.
 - **Halftone Method** — `Ordered` (default) or `Diffusion`. Applies to the
   separated modes; in `RGB` the printer does its own halftoning.
+- **Raster Banding** — `Off` by default, meaning the page goes as a single
+  raster block. Only raise this if a very large job loses its bottom edge;
+  splitting costs visible seams (see *Hardware quirks*). `-o BandBytes=N`
+  sets an exact size for tuning.
 
 Which options actually do anything depends on the colour mode:
 
@@ -150,9 +154,17 @@ These cost real time to find, and the code comments point back here.
   JetDirect TCP stack. The filter therefore opens its own connection to
   `$DEVICE_URI` with `TCP_NODELAY` and a large buffer, falling back to
   stdout if that fails.
-- **Raster is sent in bands.** Each band is closed with End Raster Graphics
-  so the device renders and frees it, bounding peak memory instead of
-  requiring the whole decompressed image to fit at once.
+- **Splitting the raster into bands causes visible seams.** Closing each
+  band with End Raster Graphics makes the device move the CAP and, per the
+  spec, "fill the area through which the CAP moves with zeros" — which
+  shows up as regular stripes across flat tone, spaced exactly one band
+  apart (17.4 mm on A3 at 300 dpi). The page is now sent as a single
+  block, which is also the form HP's own examples use. Banding had been
+  added as a defence against the device running out of memory, on a
+  misdiagnosis — the symptom it was meant to cure turned out to be the
+  swapped `PS` parameters — and memory is in any case already handled by
+  `ESC&a1N`, which lets the device print as data arrives instead of
+  composing the whole page first.
 - **Compression is chosen per row.** Packbits wins on flat and blank areas,
   delta-row wins on photographic areas where adjacent rows are nearly
   identical. Measured on a real 600 dpi photo job, delta-row gave 4.3x
