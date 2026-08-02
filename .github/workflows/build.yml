@@ -28,20 +28,28 @@ jobs:
           lipo -info filter/rastertohpgl2rtl | grep -q x86_64
           lipo -info filter/rastertohpgl2rtl | grep -q arm64
 
+      - name: Round-trip test the raster encoder
+        run: make test
+
+      # Must run before the PPD check: cupstestppd verifies that the file
+      # named by cupsFilter2 actually exists on disk, so the driver has to
+      # be in place for that check to mean anything. Installing here also
+      # exercises the install target itself.
+      - name: Install the driver
+        run: sudo make install
+
+      - name: Check the driver landed where the PPD says it should
+        run: |
+          test -x /Library/Printers/HPDesignJet1050C/rastertohpgl2rtl
+          test -f /Library/Printers/PPDs/Contents/Resources/HP-DesignJet_1050C.ppd
+          test -f /Library/Printers/PPDs/Contents/Resources/HP-DesignJet_1050C_Raw.ppd
+
       # cupstestppd exits non-zero on FAIL but zero on warnings, so this
       # gates real PPD errors without tripping over cosmetic naming notes.
       - name: Validate PPDs
         run: |
           cupstestppd ppd/HP-DesignJet_1050C.ppd
           cupstestppd ppd/HP-DesignJet_1050C_Raw.ppd
-
-      - name: Check the PPD points at where the filter is installed
-        run: |
-          grep -q '/Library/Printers/HPDesignJet1050C/rastertohpgl2rtl' \
-            ppd/HP-DesignJet_1050C.ppd
-
-      - name: Round-trip test the raster encoder
-        run: make test
 
       - name: Build installer package
         run: make pkg
