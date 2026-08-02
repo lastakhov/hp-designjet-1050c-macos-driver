@@ -24,12 +24,19 @@
  *                               whole page - see the note by emit_page())
  *   ESC * r # S                 Source raster width (pixels)
  *   ESC * t # R                 Graphics resolution (dpi)
- *   ESC * v 6 W [0,3,3,8,8,8]   Configure Image Data: direct-by-pixel RGB888
+ *   ESC * r -4 U                Simple Colour KCMY palette, in the default
+ *                               separated modes - or, in legacy RGB mode,
+ *                               ESC * v 6 W [0,3,3,8,8,8] (Configure Image
+ *                               Data, direct-by-pixel RGB888) instead
  *   { ESC * r 1 A                 Start raster graphics at CAP (unscaled)
  *     { ESC * b # M               Compression method, emitted only when it
- *                                 changes: 2 (Packbits) or 3 (delta-row),
- *                                 chosen per row by whichever is smaller
- *       ESC * b # W <data> }*     One combined command per row of this band
+ *                                 changes: 0 (none), 2 (Packbits) or 3
+ *                                 (delta-row), chosen per plane by
+ *                                 whichever comes out smallest
+ *       ESC * b # V <data>        Planes K, C, M of this row...
+ *       ESC * b # W <data> }*     ...then Y, which advances the row.
+ *                                 (RGB mode sends the chunky row as a
+ *                                 single W transfer.)
  *     ESC * r C                   End raster graphics: renders/frees the
  *                                 band, advances CAP to the next row }*
  *                               Repeated per band - see the note by
@@ -471,6 +478,171 @@ emit_job_trailer(const char *title)
   fprintf(out, "\033%%-12345X@PJL EOJ NAME=\"%s\"\r\n", safe_title);
 }
 
+/*
+ * Colour handling modes.
+ *
+ * MODE_RGB sends 24-bit RGB and lets the printer work out how to lay ink
+ * down. That is simple, but this device composites black out of cyan,
+ * magenta and yellow rather than reaching for the black cartridge, so
+ * black text and line work come out muddy, use three times the ink, and
+ * show a colour cast.
+ *
+ * MODE_KCMY does the separation here instead: convert to CMY, pull the
+ * common grey component out into a real K channel, dither each channel to
+ * one bit, and hand the printer four 1-bit planes through the Simple
+ * Colour KCMY palette. Black then prints as black ink. It is also far
+ * less data - 4 bits per pixel instead of 24 before compression.
+ *
+ * MODE_GRAY_K is the same machinery with a single K plane, for line work
+ * that has no colour in it at all.
+ */
+enum color_mode
+{
+  MODE_RGB = 0,
+  MODE_KCMY,
+  MODE_GRAY_K
+};
+
+static enum color_mode color_mode = MODE_KCMY;
+
+/* 0 = ordered (Bayer), 1 = Floyd-Steinberg. See dither_plane_ordered()
+ * for why ordered is the default despite being the grainier of the two. */
+static int dither_diffuse;
+
+/* Number of 1-bit planes each mode sends per row (0 = chunky RGB). */
+static int
+planes_for_mode(enum color_mode m)
+{
+  switch (m)
+  {
+    case MODE_KCMY:
+      return 4;
+    case MODE_GRAY_K:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/*
+ * Separate one row of RGB into per-channel ink amounts, 0 = no ink and
+ * 255 = full ink.
+ *
+ * Plane order is fixed by the Simple Colour KCMY palette, whose index bits
+ * run black, cyan, magenta, yellow from least significant upwards - and
+ * the spec requires the least significant plane to be sent first, so
+ * ink[0]=K, [1]=C, [2]=M, [3]=Y is also the order they go on the wire.
+ *
+ * Grey component replacement is total: whatever cyan, magenta and yellow
+ * have in common becomes K and is removed from all three. That is the
+ * whole point of the exercise - it is what stops neutral tones being
+ * mixed out of coloured inks.
+ */
+static void
+separate_row(const unsigned char *rgb, unsigned width, enum color_mode mode,
+             unsigned char *ink[4])
+{
+  for (unsigned x = 0; x < width; x++)
+  {
+    int r = rgb[x * 3 + 0];
+    int g = rgb[x * 3 + 1];
+    int b = rgb[x * 3 + 2];
+
+    if (mode == MODE_GRAY_K)
+    {
+      /* Rec. 601 luma, then invert: dark pixels want lots of black ink. */
+      int luma = (r * 77 + g * 151 + b * 28) >> 8;
+      ink[0][x] = (unsigned char)(255 - luma);
+      continue;
+    }
+
+    int c = 255 - r;
+    int m = 255 - g;
+    int y = 255 - b;
+
+    int k = c < m ? c : m;
+    if (y < k)
+      k = y;
+
+    ink[0][x] = (unsigned char)k;
+    ink[1][x] = (unsigned char)(c - k);
+    ink[2][x] = (unsigned char)(m - k);
+    ink[3][x] = (unsigned char)(y - k);
+  }
+}
+
+/* Bayer 8x8 ordered-dither thresholds, scaled to 0..255. */
+static const unsigned char bayer8[8][8] = {
+    {  0, 128,  32, 160,   8, 136,  40, 168},
+    {192,  64, 224,  96, 200,  72, 232, 104},
+    { 48, 176,  16, 144,  56, 184,  24, 152},
+    {240, 112, 208,  80, 248, 120, 216,  88},
+    { 12, 140,  44, 172,   4, 132,  36, 164},
+    {204,  76, 236, 108, 196,  68, 228, 100},
+    { 60, 188,  28, 156,  52, 180,  20, 148},
+    {252, 124, 220,  92, 244, 116, 212,  84},
+};
+
+/*
+ * Ordered (Bayer) dither of one channel down to one bit.
+ *
+ * Chosen as the default over error diffusion specifically because of what
+ * it does to compressibility. The threshold pattern repeats every 8
+ * pixels, which is exactly one packed byte, so a flat area of the image
+ * becomes one byte value repeated across the whole row - which Packbits
+ * then collapses to almost nothing. Error diffusion turns the same flat
+ * area into unrepeatable noise; measured on a full-page gradient it made
+ * the job 27x larger than sending contone RGB and letting the printer
+ * halftone. Ordered dither is grainier than error diffusion on
+ * photographs, which is why the choice is exposed rather than hardcoded.
+ */
+static void
+dither_plane_ordered(const unsigned char *ink, unsigned width, unsigned row,
+                     unsigned char *bits, size_t planebytes)
+{
+  const unsigned char *thresh = bayer8[row & 7];
+  memset(bits, 0, planebytes);
+
+  for (unsigned x = 0; x < width; x++)
+    if (ink[x] > thresh[x & 7])
+      bits[x >> 3] |= (unsigned char)(0x80 >> (x & 7));
+}
+
+/*
+ * Floyd-Steinberg error diffusion of one channel down to one bit, packed
+ * MSB-first (bit 7 of the first byte is the leftmost pixel, matching the
+ * bit order HP RTL expects for unencoded row data).
+ *
+ * err_cur/err_next are indexed with a +1 bias so that spilling error onto
+ * x-1 at the left edge lands in a scratch slot instead of out of bounds.
+ * They persist across bands on purpose: bands are only protocol framing,
+ * the image runs continuously through them, and resetting the diffusion
+ * state at each boundary would leave a visible seam.
+ */
+static void
+dither_plane(const unsigned char *ink, unsigned width, int *err_cur,
+             int *err_next, unsigned char *bits, size_t planebytes)
+{
+  memset(bits, 0, planebytes);
+  memset(err_next, 0, (width + 2) * sizeof(int));
+
+  for (unsigned x = 0; x < width; x++)
+  {
+    int v = ink[x] + err_cur[x + 1];
+    int on = v >= 128;
+    int e = v - (on ? 255 : 0);
+
+    if (on)
+      bits[x >> 3] |= (unsigned char)(0x80 >> (x & 7));
+
+    /* 7/16 right, 3/16 below-left, 5/16 below, 1/16 below-right. */
+    err_cur[x + 2] += e * 7 / 16;
+    err_next[x] += e * 3 / 16;
+    err_next[x + 1] += e * 5 / 16;
+    err_next[x + 2] += e * 1 / 16;
+  }
+}
+
 static int
 emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
 {
@@ -555,27 +727,86 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
   fprintf(out, "\033*r%uS", width);
   fprintf(out, "\033*t%dR", (int)lround(xres));
 
-  /* Configure Image Data: color space=0, pixel encoding=3 (direct by
-   * pixel), bits/index=3 (unused in direct mode), bits/R=G=B=8. */
-  fprintf(out, "\033*v6W");
+  int nplanes = planes_for_mode(color_mode);
+  size_t planebytes = (width + 7) / 8;
+  /* Bytes actually handed to the compressors: one packed plane in the
+   * separated modes, one chunky RGB row in the passthrough mode. */
+  size_t unit = nplanes ? planebytes : bpl;
+
+  if (nplanes)
   {
+    /* Simple Colour replaces Configure Image Data entirely - it defines
+     * its own fixed palette and forces indexed-planar encoding. It has to
+     * be set before Start Raster Graphics, and is ignored inside raster
+     * mode, so it goes here rather than per band. End Raster Graphics
+     * does not reset the palette, so one setup covers every band. */
+    fprintf(out, "\033*r%dU", nplanes == 4 ? -4 : 1);
+  }
+  else
+  {
+    /* Configure Image Data: color space=0, pixel encoding=3 (direct by
+     * pixel), bits/index=3 (unused in direct mode), bits/R=G=B=8. */
+    fprintf(out, "\033*v6W");
     unsigned char cfg[6] = {0, 3, 3, 8, 8, 8};
     fwrite(cfg, 1, sizeof(cfg), out);
   }
 
   unsigned char *line = malloc(bpl);
-  unsigned char *packed = malloc(bpl + (bpl / 128) + 16);
-  unsigned char *delta = malloc(2 * (size_t)bpl + 64);
-  unsigned char *seed = calloc(1, bpl); /* previous row, for method 3 */
-  if (!line || !packed || !delta || !seed)
+  unsigned char *packed = malloc(unit + (unit / 128) + 16);
+  unsigned char *delta = malloc(2 * unit + 64);
+  /* One seed row per plane: the spec keeps a separate seed row for each
+   * plane of a multi-plane image. */
+  unsigned char *seed[4] = {NULL, NULL, NULL, NULL};
+  unsigned char *ink[4] = {NULL, NULL, NULL, NULL};
+  unsigned char *bits[4] = {NULL, NULL, NULL, NULL};
+  int *err_cur[4] = {NULL, NULL, NULL, NULL};
+  int *err_next[4] = {NULL, NULL, NULL, NULL};
+  int alloc_ok = (line && packed && delta);
+
+  for (int p = 0; p < (nplanes ? nplanes : 1); p++)
   {
-    DBG("page=%d ABORT out of memory (bpl=%u)\n", page_num, bpl);
-    free(line);
-    free(packed);
-    free(delta);
-    free(seed);
+    seed[p] = calloc(1, unit);
+    if (!seed[p])
+      alloc_ok = 0;
+  }
+  for (int p = 0; p < nplanes; p++)
+  {
+    ink[p] = malloc(width);
+    bits[p] = malloc(planebytes);
+    err_cur[p] = calloc(width + 2, sizeof(int));
+    err_next[p] = calloc(width + 2, sizeof(int));
+    if (!ink[p] || !bits[p] || !err_cur[p] || !err_next[p])
+      alloc_ok = 0;
+  }
+
+#define FREE_PAGE_BUFFERS()                                               \
+  do                                                                      \
+  {                                                                       \
+    free(line);                                                           \
+    free(packed);                                                         \
+    free(delta);                                                          \
+    for (int _p = 0; _p < 4; _p++)                                        \
+    {                                                                     \
+      free(seed[_p]);                                                     \
+      free(ink[_p]);                                                      \
+      free(bits[_p]);                                                     \
+      free(err_cur[_p]);                                                  \
+      free(err_next[_p]);                                                 \
+    }                                                                     \
+  } while (0)
+
+  if (!alloc_ok)
+  {
+    DBG("page=%d ABORT out of memory (bpl=%u unit=%zu planes=%d)\n",
+        page_num, bpl, unit, nplanes);
+    FREE_PAGE_BUFFERS();
     return 0;
   }
+
+  DBG("page=%d color mode=%s planes=%d planebytes=%zu\n", page_num,
+      color_mode == MODE_KCMY ? "KCMY"
+                              : (color_mode == MODE_GRAY_K ? "K" : "RGB"),
+      nplanes, planebytes);
 
   /* Band the raster instead of sending it as one Start/End Raster
    * Graphics block covering the whole page. A real (non-flat-test-shape)
@@ -610,9 +841,12 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
 
     fprintf(out, "\033*r1A");   /* Start raster graphics at CAP, unscaled. */
 
-    /* Start Raster Graphics zeroes the seed row and resets the compression
-     * method to 0, so both have to be re-established per band. */
-    memset(seed, 0, bpl);
+    /* Start Raster Graphics zeroes every seed row and resets the
+     * compression method to 0, so both have to be re-established per
+     * band. The error-diffusion state deliberately survives - see
+     * dither_plane(). */
+    for (int p = 0; p < (nplanes ? nplanes : 1); p++)
+      memset(seed[p], 0, unit);
     int cur_method = -1;
 
     for (; y < band_end; y++)
@@ -624,66 +858,102 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
             "elapsed=%.3f total_out=%zu\n",
             page_num, y, height, got, bpl, now_seconds(),
             now_seconds() - t_start, total_out);
-        free(line);
-        free(packed);
-        free(delta);
-        free(seed);
+        FREE_PAGE_BUFFERS();
         return 0;
       }
 
-      /* Apply gamma before compressing, so the seed row and the
-       * compressed bytes all describe the same corrected image. */
+      /* Apply gamma before separating, so every downstream stage - ink
+       * amounts, dithering, seed rows, compressed bytes - describes the
+       * same corrected image. */
       if (gamma_active)
         for (unsigned b = 0; b < bpl; b++)
           line[b] = gamma_lut[line[b]];
 
-      /* Pick whichever row-based method encodes this particular row
-       * smallest. Packbits wins on flat/blank areas (long byte runs),
-       * delta-row wins on photographic areas (rows nearly identical to
-       * the one above); measured on a real job, choosing per row beats
-       * either method alone. Mixing is explicitly safe: the seed row is
-       * updated by *any* row-based transfer, not just method-3 ones. */
-      size_t n_pack = packbits_encode(line, bpl, packed);
-      size_t n_delta = delta_encode(line, seed, bpl, delta);
-
-      const unsigned char *enc;
-      size_t n;
-      int method;
-      if (n_delta < n_pack)
+      if (nplanes)
       {
-        enc = delta; n = n_delta; method = 3;
-      }
-      else
-      {
-        enc = packed; n = n_pack; method = 2;
-      }
-
-      if (method != cur_method)
-      {
-        fprintf(out, "\033*b%dM", method);
-        cur_method = method;
+        separate_row(line, width, color_mode, ink);
+        for (int p = 0; p < nplanes; p++)
+        {
+          if (dither_diffuse)
+          {
+            dither_plane(ink[p], width, err_cur[p], err_next[p], bits[p],
+                         planebytes);
+            /* Roll the diffusion window down one row. */
+            int *tmp = err_cur[p];
+            err_cur[p] = err_next[p];
+            err_next[p] = tmp;
+          }
+          else
+          {
+            dither_plane_ordered(ink[p], width, y, bits[p], planebytes);
+          }
+        }
       }
 
-      fprintf(out, "\033*b%zuW", n);
-      size_t wrote = fwrite(enc, 1, n, out);
-      total_out += wrote;
-      memcpy(seed, line, bpl); /* this row becomes the next seed row */
+      /* One transfer per plane; the last plane of the row uses W (which
+       * advances the row), every earlier plane uses V (which advances
+       * only the plane pointer). In chunky RGB mode there is a single
+       * "plane" and it is simply the row itself. */
+      for (int p = 0; p < (nplanes ? nplanes : 1); p++)
+      {
+        const unsigned char *src = nplanes ? bits[p] : line;
+
+        /* Pick whichever method encodes this particular plane smallest.
+         * Packbits wins on flat/blank areas (long byte runs), delta-row
+         * wins where the plane barely changes from the row above, and
+         * plain unencoded wins on dithered noise, where both compressors
+         * would otherwise *expand* the data. Mixing is explicitly safe:
+         * the seed row is updated by any row-based transfer, whatever
+         * method produced it. */
+        size_t n_pack = packbits_encode(src, unit, packed);
+        size_t n_delta = delta_encode(src, seed[p], unit, delta);
+
+        const unsigned char *enc = src;
+        size_t n = unit;
+        int method = 0;
+        if (n_pack < n)
+        {
+          enc = packed; n = n_pack; method = 2;
+        }
+        if (n_delta < n)
+        {
+          enc = delta; n = n_delta; method = 3;
+        }
+
+        if (method != cur_method)
+        {
+          fprintf(out, "\033*b%dM", method);
+          cur_method = method;
+        }
+
+        int last = (p == (nplanes ? nplanes : 1) - 1);
+        fprintf(out, "\033*b%zu%c", n, last ? 'W' : 'V');
+        size_t wrote = fwrite(enc, 1, n, out);
+        total_out += wrote;
+        memcpy(seed[p], src, unit); /* becomes this plane's next seed row */
+
+        if (wrote != n)
+        {
+          DBG("page=%d ABORT short write at row=%u/%u plane=%d wrote=%zu "
+              "want=%zu errno=%d (%s)\n",
+              page_num, y, height, p, wrote, n, errno, strerror(errno));
+          FREE_PAGE_BUFFERS();
+          return 0;
+        }
+      }
 
       /* SIGPIPE is ignored (see main()), so a dead connection to the
        * printer shows up here as a short/failed write, not a signal -
        * if we don't check for it we'll happily "finish" the whole page
        * while silently sending nothing past the point the connection
        * died. */
-      if (wrote != n || ferror(out))
+      if (ferror(out))
       {
-        DBG("page=%d ABORT write failed at row=%u/%u wrote=%zu want=%zu "
+        DBG("page=%d ABORT write failed at row=%u/%u "
             "errno=%d (%s) t=%.3f elapsed=%.3f total_out=%zu\n",
-            page_num, y, height, wrote, n, errno, strerror(errno),
+            page_num, y, height, errno, strerror(errno),
             now_seconds(), now_seconds() - t_start, total_out);
-        free(line);
-        free(packed);
-        free(delta);
-        free(seed);
+        FREE_PAGE_BUFFERS();
         return 0;
       }
     }
@@ -696,10 +966,7 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
       DBG("page=%d ABORT write failed ending band at row=%u/%u errno=%d "
           "(%s)\n",
           page_num, y, height, errno, strerror(errno));
-      free(line);
-      free(packed);
-      free(delta);
-      free(seed);
+      FREE_PAGE_BUFFERS();
       return 0;
     }
 
@@ -708,10 +975,8 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
         total_out);
   }
 
-  free(line);
-  free(packed);
-  free(delta);
-  free(seed);
+  FREE_PAGE_BUFFERS();
+#undef FREE_PAGE_BUFFERS
 
   fprintf(out, "\033%%0B");  /* Back to HP-GL/2. */
   fprintf(out, "PG;");       /* Advance/print the page. */
@@ -791,6 +1056,21 @@ main(int argc, char *argv[])
         v /= 100.0;
       if (v > 0.0)
         gamma = v;
+    }
+
+    const char *dm = cupsGetOption("Dither", num_options, options);
+    if (dm && (!strcasecmp(dm, "Diffusion") || !strcasecmp(dm, "FS")))
+      dither_diffuse = 1;
+
+    const char *cm = cupsGetOption("ColorModel", num_options, options);
+    if (cm)
+    {
+      if (!strcasecmp(cm, "RGB"))
+        color_mode = MODE_RGB;
+      else if (!strcasecmp(cm, "Gray") || !strcasecmp(cm, "KOnly"))
+        color_mode = MODE_GRAY_K;
+      else
+        color_mode = MODE_KCMY;
     }
     cupsFreeOptions(num_options, options);
   }

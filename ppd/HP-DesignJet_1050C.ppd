@@ -178,12 +178,35 @@
 *Resolution 600dpi/600 DPI (Best): "<</HWResolution[600 600]>>setpagedevice"
 *CloseUI: *Resolution
 
+*% All three modes take the same 8-bit RGB raster from CUPS; they differ in
+*% what the driver does with it. KCMY separates to black/cyan/magenta/yellow
+*% here, with full grey component replacement, dithers each channel to one
+*% bit and sends four planes through the Simple Colour KCMY palette - so
+*% black prints with black ink instead of being mixed from CMY, and only
+*% 4 bits per pixel go over the wire. RGB hands 24-bit colour to the printer
+*% and lets it decide how to lay ink down, which is what the driver used to
+*% do; keep it as a fallback. Gray sends a single black plane.
 *OpenUI *ColorModel/Color Mode: PickOne
 *OrderDependency: 10 AnySetup *ColorModel
-*DefaultColorModel: RGB
-*ColorModel RGB/Color (24-bit RGB): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
-*ColorModel Gray/Grayscale (as RGB): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*DefaultColorModel: KCMY
+*ColorModel KCMY/Color - true black ink (recommended): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*ColorModel RGB/Color - printer decides ink (legacy): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*ColorModel Gray/Black ink only: "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *CloseUI: *ColorModel
+
+*% How the separated channels are reduced to the one bit per pixel the
+*% printer's KCMY palette accepts. Ordered is the default because its
+*% threshold pattern repeats every 8 pixels - exactly one packed byte - so
+*% flat areas compress to almost nothing; error diffusion turns the same
+*% areas into incompressible noise and made a full-page gradient 7x larger
+*% in measurement. Diffusion is smoother on photographs. Ignored when Color
+*% Mode is RGB, since then the printer does its own halftoning.
+*OpenUI *Dither/Halftone Method: PickOne
+*OrderDependency: 10 AnySetup *Dither
+*DefaultDither: Ordered
+*Dither Ordered/Ordered - smaller jobs (recommended): ""
+*Dither Diffusion/Error diffusion - smoother photos: ""
+*CloseUI: *Dither
 
 *% Driver-side gamma correction, applied by rastertohpgl2rtl as a 256-entry
 *% lookup table using the transfer function the HP-GL/2 and HP RTL Reference

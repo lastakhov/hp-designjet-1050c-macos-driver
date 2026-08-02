@@ -235,6 +235,105 @@ main(void)
       darkens = 0;
   check("gamma 0.6 darkens midtones", darkens);
 
+  /* 11. colour separation. Plane order is K, C, M, Y - fixed by the Simple
+   *     Colour KCMY palette, whose index bits run black, cyan, magenta,
+   *     yellow upwards from the least significant, which is also the order
+   *     the spec requires them to be sent in. */
+  {
+    const unsigned W = 6;
+    unsigned char rgb[6 * 3] = {
+        255, 255, 255, /* white  - no ink at all */
+        0,   0,   0,   /* black  - K only, no CMY */
+        255, 0,   0,   /* red    - M + Y */
+        0,   255, 0,   /* green  - C + Y */
+        0,   0,   255, /* blue   - C + M */
+        128, 128, 128, /* grey   - K only */
+    };
+    unsigned char k[6], c[6], m[6], yl[6];
+    unsigned char *planes[4] = {k, c, m, yl};
+    separate_row(rgb, W, MODE_KCMY, planes);
+
+    check("white uses no ink",
+          k[0] == 0 && c[0] == 0 && m[0] == 0 && yl[0] == 0);
+    check("black is pure K, no CMY",
+          k[1] == 255 && c[1] == 0 && m[1] == 0 && yl[1] == 0);
+    check("grey is pure K, no CMY",
+          k[5] == 127 && c[5] == 0 && m[5] == 0 && yl[5] == 0);
+    check("red is M+Y with no K", k[2] == 0 && c[2] == 0 && m[2] == 255 &&
+                                      yl[2] == 255);
+    check("green is C+Y with no K", k[3] == 0 && c[3] == 255 && m[3] == 0 &&
+                                        yl[3] == 255);
+    check("blue is C+M with no K", k[4] == 0 && c[4] == 255 && m[4] == 255 &&
+                                       yl[4] == 0);
+
+    /* Grey component replacement must never leave a channel able to
+     * recreate the neutral: after GCR at least one of C/M/Y is zero. */
+    int gcr_ok = 1;
+    for (unsigned x = 0; x < W; x++)
+      if (c[x] && m[x] && yl[x])
+        gcr_ok = 0;
+    check("GCR always empties at least one chromatic channel", gcr_ok);
+
+    separate_row(rgb, W, MODE_GRAY_K, planes);
+    check("gray mode: white is blank", k[0] == 0);
+    check("gray mode: black is full", k[1] == 255);
+  }
+
+  /* 12. dithering: bit packing is MSB-first, and flat input reproduces the
+   *     right average ink coverage rather than drifting. */
+  {
+    const unsigned W = 64;
+    size_t pb = (W + 7) / 8;
+    unsigned char inkrow[64], bitrow[8];
+    int *ec = calloc(W + 2, sizeof(int));
+    int *en = calloc(W + 2, sizeof(int));
+
+    memset(inkrow, 255, W); /* solid ink */
+    dither_plane(inkrow, W, ec, en, bitrow, pb);
+    int allset = 1;
+    for (size_t i = 0; i < pb; i++)
+      if (bitrow[i] != 0xFF)
+        allset = 0;
+    check("solid ink sets every bit", allset);
+
+    memset(ec, 0, (W + 2) * sizeof(int));
+    memset(inkrow, 0, W); /* no ink */
+    dither_plane(inkrow, W, ec, en, bitrow, pb);
+    int allclear = 1;
+    for (size_t i = 0; i < pb; i++)
+      if (bitrow[i] != 0x00)
+        allclear = 0;
+    check("no ink clears every bit", allclear);
+
+    /* Leftmost pixel must land in bit 7 of byte 0. */
+    memset(ec, 0, (W + 2) * sizeof(int));
+    memset(inkrow, 0, W);
+    inkrow[0] = 255;
+    dither_plane(inkrow, W, ec, en, bitrow, pb);
+    check("pixel 0 is the MSB of byte 0", (bitrow[0] & 0x80) != 0);
+
+    /* 50% grey should come out near 50% coverage, not 0 or 100. */
+    memset(ec, 0, (W + 2) * sizeof(int));
+    memset(en, 0, (W + 2) * sizeof(int));
+    int lit = 0;
+    for (int row = 0; row < 32; row++)
+    {
+      memset(inkrow, 128, W);
+      dither_plane(inkrow, W, ec, en, bitrow, pb);
+      int *t = ec; ec = en; en = t;
+      for (size_t i = 0; i < pb; i++)
+        for (int b = 0; b < 8; b++)
+          if (bitrow[i] & (0x80 >> b))
+            lit++;
+    }
+    double coverage = lit / (double)(W * 32);
+    check("50% ink dithers to roughly 50% coverage",
+          coverage > 0.45 && coverage < 0.55);
+
+    free(ec);
+    free(en);
+  }
+
   free(row);
   free(seed);
 
