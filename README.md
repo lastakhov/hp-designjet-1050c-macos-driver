@@ -20,15 +20,24 @@ So this driver converts CUPS raster into **HP RTL** raster wrapped in
 
 ## Installing
 
-Download the `.pkg` from the latest CI run, or build it yourself:
+Grab the `.pkg` from the
+[latest release](https://github.com/lastakhov/hp-designjet-1050c-macos-driver/releases/latest)
+— no GitHub account needed — and install it:
+
+```bash
+sudo installer -pkg HP-DesignJet-1050C-Driver.pkg -target /
+```
+
+The package is unsigned, so Gatekeeper will object to a double-click; use
+the `installer` command above, or right-click → Open. It is a universal
+binary and runs on both Intel and Apple Silicon.
+
+Or build it yourself:
 
 ```bash
 make pkg
 sudo installer -pkg build/HP-DesignJet-1050C-Driver.pkg -target /
 ```
-
-The package is unsigned, so Gatekeeper will object to a double-click; use
-the `installer` command above, or right-click → Open.
 
 To build and install from source in one step:
 
@@ -89,6 +98,10 @@ around 100 KB, and its lines are drawn rather than built out of dots.
   stays pure black ink at every setting. `KCMY` only.
 - **Halftone Method** — `Ordered` (default) or `Diffusion`. Applies to the
   separated modes; in `RGB` the printer does its own halftoning.
+- **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
+  Applied as a 256-entry lookup table using the transfer function HP's
+  reference guide specifies for this printer family. HP suggests ~2.5 for a
+  DesignJet on HP Special Paper.
 - **Raster Banding** — `Off` by default, meaning the page goes as a single
   raster block. Only raise this if a very large job loses its bottom edge;
   splitting costs visible seams (see *Hardware quirks*). `-o BandBytes=N`
@@ -105,10 +118,6 @@ Which options actually do anything depends on the colour mode:
 `Gray` ignores black generation because it has a single black plane and no
 chromatic channels to move a grey component out of. `RGB` ignores both
 because separation and halftoning are left to the printer.
-- **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
-  Applied as a 256-entry lookup table using the transfer function HP's
-  reference guide specifies for this printer family. HP suggests ~2.5 for a
-  DesignJet on HP Special Paper.
 
 ## Hardware quirks worth knowing
 
@@ -244,3 +253,8 @@ easiest parts to get subtly wrong.
 ## Reference
 
 HP-GL/2 and HP RTL Reference Guide, HP part number 5961-3526.
+
+## Licence
+
+GPL-2.0-or-later — the usual choice for CUPS filters, and the same terms
+Gutenprint, HPLIP and foomatic use. See [LICENSE](LICENSE).

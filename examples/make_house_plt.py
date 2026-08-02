@@ -1,3 +1,10 @@
+# Copyright (C) 2026 Leonid Astakhov
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version. See the LICENSE file for details.
+
 """Generate an A3 house drawing as native HP-GL/2, for testing the raw queue.
 
 Everything is drawn in millimetres via an isotropic SC mapping. Isotropic
