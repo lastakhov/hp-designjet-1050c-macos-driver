@@ -509,6 +509,29 @@ static enum color_mode color_mode = MODE_KCMY;
  * for why ordered is the default despite being the grainier of the two. */
 static int dither_diffuse;
 
+/*
+ * Black start point for grey component replacement, 0..254.
+ *
+ * Grey component replacement takes whatever cyan, magenta and yellow have
+ * in common and moves it into the black channel. Doing that in full (start
+ * = 0) is what stops neutrals being mixed out of coloured inks, and it is
+ * exactly right for text and line work. On photographs it can flatten the
+ * shadows, because everything neutral becomes black ink and nothing else.
+ *
+ * Backing it off is the usual remedy, but the naive way to do that -
+ * scaling K by some factor below 1 - would put coloured ink back underneath
+ * pure black text, undoing the very problem this was written to fix. So
+ * instead of scaling, this raises the point at which black *starts*:
+ *
+ *   K = (min(c,m,y) - start) / (255 - start), clamped at zero
+ *
+ * Light and mid neutrals below the start point are left to CMY, which keeps
+ * photographic shadows from going flat, while anything fully saturated
+ * still maps to K = 255 whatever the setting - so black stays pure black at
+ * every level.
+ */
+static int black_start;
+
 /* Number of 1-bit planes each mode sends per row (0 = chunky RGB). */
 static int
 planes_for_mode(enum color_mode m)
@@ -533,10 +556,10 @@ planes_for_mode(enum color_mode m)
  * the spec requires the least significant plane to be sent first, so
  * ink[0]=K, [1]=C, [2]=M, [3]=Y is also the order they go on the wire.
  *
- * Grey component replacement is total: whatever cyan, magenta and yellow
- * have in common becomes K and is removed from all three. That is the
- * whole point of the exercise - it is what stops neutral tones being
- * mixed out of coloured inks.
+ * How much of the common grey component becomes K is governed by
+ * black_start - see its comment. Whatever K is generated is removed from
+ * all three chromatic channels, so they never re-create what black is
+ * already printing.
  */
 static void
 separate_row(const unsigned char *rgb, unsigned width, enum color_mode mode,
@@ -560,14 +583,30 @@ separate_row(const unsigned char *rgb, unsigned width, enum color_mode mode,
     int m = 255 - g;
     int y = 255 - b;
 
-    int k = c < m ? c : m;
-    if (y < k)
-      k = y;
+    int grey = c < m ? c : m;
+    if (y < grey)
+      grey = y;
+
+    int k;
+    if (black_start <= 0)
+    {
+      k = grey; /* full replacement */
+    }
+    else if (grey <= black_start)
+    {
+      k = 0; /* below the start point, leave the neutral to CMY */
+    }
+    else
+    {
+      /* Ramp from the start point up to full black at 255, so a fully
+       * saturated neutral still lands on exactly K=255. */
+      k = (grey - black_start) * 255 / (255 - black_start);
+    }
 
     ink[0][x] = (unsigned char)k;
-    ink[1][x] = (unsigned char)(c - k);
-    ink[2][x] = (unsigned char)(m - k);
-    ink[3][x] = (unsigned char)(y - k);
+    ink[1][x] = (unsigned char)(c - k < 0 ? 0 : c - k);
+    ink[2][x] = (unsigned char)(m - k < 0 ? 0 : m - k);
+    ink[3][x] = (unsigned char)(y - k < 0 ? 0 : y - k);
   }
 }
 
@@ -1056,6 +1095,19 @@ main(int argc, char *argv[])
         v /= 100.0;
       if (v > 0.0)
         gamma = v;
+    }
+
+    const char *bg = cupsGetOption("BlackGeneration", num_options, options);
+    if (bg)
+    {
+      if (!strcasecmp(bg, "Heavy"))
+        black_start = 64;
+      else if (!strcasecmp(bg, "Medium"))
+        black_start = 128;
+      else if (!strcasecmp(bg, "Light"))
+        black_start = 192;
+      else
+        black_start = 0; /* Full */
     }
 
     const char *dm = cupsGetOption("Dither", num_options, options);

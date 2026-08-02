@@ -277,6 +277,64 @@ main(void)
     separate_row(rgb, W, MODE_GRAY_K, planes);
     check("gray mode: white is blank", k[0] == 0);
     check("gray mode: black is full", k[1] == 255);
+    black_start = 0;
+  }
+
+  /* 11b. partial black generation. The whole point of raising the black
+   *      start point rather than scaling K down is that pure black must
+   *      stay pure black ink at every setting - otherwise backing GCR off
+   *      for photographs would quietly put coloured ink back under text. */
+  {
+    const unsigned W = 4;
+    unsigned char rgb[4 * 3] = {
+        0,   0,   0,   /* pure black */
+        128, 128, 128, /* mid grey   */
+        64,  64,  64,  /* dark grey  */
+        255, 255, 255, /* white      */
+    };
+    unsigned char k[4], c[4], m[4], yl[4];
+    unsigned char *planes[4] = {k, c, m, yl};
+
+    int starts[] = {0, 64, 128, 192};
+    for (unsigned si = 0; si < sizeof(starts) / sizeof(starts[0]); si++)
+    {
+      black_start = starts[si];
+      separate_row(rgb, W, MODE_KCMY, planes);
+
+      char label[96];
+      snprintf(label, sizeof(label),
+               "black start %d: pure black is K=255 with no CMY", starts[si]);
+      check(label, k[0] == 255 && c[0] == 0 && m[0] == 0 && yl[0] == 0);
+
+      snprintf(label, sizeof(label), "black start %d: white stays blank",
+               starts[si]);
+      check(label, k[3] == 0 && c[3] == 0 && m[3] == 0 && yl[3] == 0);
+
+      /* Whatever K is withheld must show up as neutral CMY instead, so
+       * the tone is still reproduced - just not with black ink. */
+      snprintf(label, sizeof(label),
+               "black start %d: mid grey keeps its total density",
+               starts[si]);
+      check(label, k[1] + c[1] == 127 && c[1] == m[1] && m[1] == yl[1]);
+    }
+
+    /* Raising the start point must not *increase* black anywhere. */
+    unsigned char kk[4][4];
+    for (int si = 0; si < 4; si++)
+    {
+      black_start = starts[si];
+      separate_row(rgb, W, MODE_KCMY, planes);
+      memcpy(kk[si], k, 4);
+    }
+    int monotonic = 1;
+    for (int si = 1; si < 4; si++)
+      for (int x = 0; x < 4; x++)
+        if (kk[si][x] > kk[si - 1][x])
+          monotonic = 0;
+    check("raising the black start never adds black ink", monotonic);
+    check("mid grey loses black as the start rises", kk[3][1] < kk[0][1]);
+
+    black_start = 0;
   }
 
   /* 12. dithering: bit packing is MSB-first, and flat input reproduces the

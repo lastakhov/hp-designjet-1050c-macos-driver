@@ -194,6 +194,22 @@
 *ColorModel Gray/Black ink only: "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *CloseUI: *ColorModel
 
+*% How much of a neutral is printed with black ink rather than mixed from
+*% cyan, magenta and yellow. Full sends every neutral to black, which is
+*% ideal for text and line work but can flatten photographic shadows.
+*% Backing it off raises the tone at which black *starts* instead of
+*% scaling black down, so pure black still prints as pure black ink at
+*% every setting - otherwise softening this for photographs would put
+*% coloured ink back underneath black text. Ignored in RGB mode.
+*OpenUI *BlackGeneration/Black Generation: PickOne
+*OrderDependency: 10 AnySetup *BlackGeneration
+*DefaultBlackGeneration: Full
+*BlackGeneration Full/Full - neutrals are black ink (line work): ""
+*BlackGeneration Heavy/Heavy - mostly black: ""
+*BlackGeneration Medium/Medium - richer shadows: ""
+*BlackGeneration Light/Light - black only in deep shadows (photos): ""
+*CloseUI: *BlackGeneration
+
 *% How the separated channels are reduced to the one bit per pixel the
 *% printer's KCMY palette accepts. Ordered is the default because its
 *% threshold pattern repeats every 8 pixels - exactly one packed byte - so
