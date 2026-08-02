@@ -65,6 +65,13 @@ whose `cupsFilter2` filter field is `-` (no conversion) instead.
   whose rotated width would exceed the 36 in carriage (A0, ANSI E, Arch E)
   have no landscape variant.
 - **Resolution** — 300 or 600 dpi.
+- **Color Mode** — `KCMY` (default) separates colour in the driver and sends
+  four 1-bit planes, so black prints with black ink. `RGB` sends 24-bit
+  colour and lets the printer decide how to lay ink down, which is what the
+  driver used to do. `Gray` sends a single black plane. See *Colour
+  separation* below for the trade-off.
+- **Halftone Method** — `Ordered` (default) or `Diffusion`. Only applies to
+  the separated modes; in `RGB` the printer does its own halftoning.
 - **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
   Applied as a 256-entry lookup table using the transfer function HP's
   reference guide specifies for this printer family. HP suggests ~2.5 for a
@@ -102,13 +109,50 @@ These cost real time to find, and the code comments point back here.
   overall. Mixing is safe because the seed row is updated by any row-based
   transfer.
 
-## Known limitation
+## Colour separation
 
-Black is composited by the printer from CMY inks rather than drawn from the
-black cartridge, because the driver sends 24-bit RGB and lets the device
-decide how to lay ink down. Fixing that means separating to KCMY and
-dithering on the Mac, which would also cut data volume by roughly another
-6x. Not done yet.
+Left to itself this plotter composites black out of cyan, magenta and
+yellow instead of using the black cartridge, so black text and line work
+came out muddy, cyan-tinged and three times more expensive in ink. The
+default `KCMY` mode fixes that by separating in the driver: convert to CMY,
+pull the shared grey component into a real K channel, dither each channel
+to one bit, and send four planes through the Simple Colour KCMY palette.
+Confirmed on hardware — black now prints as black ink.
+
+Two things about this are worth knowing before assuming it is a pure win.
+
+**It does not make jobs smaller.** Four bits per pixel beats twenty-four
+before compression, but dithering destroys the compressibility that contone
+RGB enjoys, and four planes cost four transfer commands per row instead of
+one:
+
+| Page | RGB | KCMY (ordered) |
+| --- | --- | --- |
+| A3 line art | 74 KB | 111 KB |
+| Full midtones | 42 KB | 158 KB |
+| Mixed content | 92 KB | 83 KB |
+
+Separated output is larger on flat art and smaller only on dense
+photographs, where there was little to compress either way.
+
+**It costs tonal resolution, though not spatial.** Average tone over one
+8×8 dither cell is accurate to within 0.9/255, but only 65 distinct levels
+survive per cell against 256 in contone, and a cell is 0.68 mm at 300 dpi
+or 0.34 mm at 600 dpi. Content that is already pure black, white or fully
+saturated — drawings, text, CAD, spot colour — reproduces exactly, so for
+this plotter's main use there is no loss at all. Photographs lose tonal
+resolution and may look better at 600 dpi, with `Dither=Diffusion`, or in
+`ColorModel=RGB`.
+
+Ordered dithering is the default over error diffusion on measurement, not
+taste: its threshold pattern repeats every 8 pixels, which is exactly one
+packed byte, so flat areas collapse under Packbits. Error diffusion turns
+the same areas into incompressible noise — 1108 KB against 158 KB on a
+full-page gradient.
+
+Separation currently uses full grey component replacement, so neutrals are
+K only. Partial GCR would give photographic shadows more depth while
+keeping text black, and is the obvious next refinement.
 
 ## Development
 
