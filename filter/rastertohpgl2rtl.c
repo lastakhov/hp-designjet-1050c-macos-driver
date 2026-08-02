@@ -37,12 +37,10 @@
  *       ESC * b # W <data> }*     ...then Y, which advances the row.
  *                                 (RGB mode sends the chunky row as a
  *                                 single W transfer.)
- *     ESC * r C                   End raster graphics: renders/frees the
- *                                 band, advances CAP to the next row }*
- *                               Repeated per band - see the note by
- *                               emit_page() on why the image is banded
- *                               instead of one Start/End Raster Graphics
- *                               pair around the whole page
+ *     ESC * r C                   End raster graphics }*
+ *                               One block per page by default. The braces
+ *                               repeat only if banding is switched back on
+ *                               - see band_target on why it is off.
  *   ESC % 0 B                   Back to HP-GL/2
  *   PG;                         Advance/print the page
  *
@@ -85,11 +83,27 @@
 
 #define HPGL_UNITS_PER_INCH 1016.0
 
-/* Target uncompressed bytes per raster band - see the long comment in
- * emit_page() for why banding exists at all. 2MB/band is a conservative
- * guess for a 25-year-old printer's available RAM; it's a starting point
- * pending real calibration against the hardware, not a measured limit. */
-#define BAND_TARGET_BYTES (2 * 1024 * 1024)
+/*
+ * Bytes of raster per Start/End Raster Graphics block, or 0 - the default -
+ * for one block covering the whole page, which is the form HP's own worked
+ * examples use.
+ *
+ * Splitting was added on the belief that the printer was running out of
+ * memory and dropping the bottom of large images. That diagnosis was
+ * wrong: the bottom was being lost to a swapped PS length/width parameter.
+ * Worse, the splitting turned out to cause a defect of its own - End
+ * Raster Graphics moves the CAP and, per the spec, "fills the area through
+ * which the CAP moves with zeros", and those boundaries showed up as
+ * visible seams across flat tone, spaced exactly one band apart (17.4 mm
+ * on A3 at 300 dpi). Confirmed by printing the same flat grey page either
+ * way: banded had seams, single-block did not.
+ *
+ * Memory is in any case already handled by ESC&a1N, which tells the device
+ * it may interleave parsing and printing rather than composing the whole
+ * page first. Splitting is kept only as an escape hatch for jobs large
+ * enough that this turns out not to be enough.
+ */
+static size_t band_target;
 
 static FILE *out; /* Where printer bytes go: direct socket, or stdout. */
 
@@ -863,9 +877,17 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
    * End Raster Graphics leaves the CAP at the start of the next row (see
    * its spec), so consecutive Start Raster Graphics(at CAP) calls simply
    * continue the image downward with no gap or overlap between bands. */
-  unsigned band_rows = (unsigned)(BAND_TARGET_BYTES / bpl);
-  if (band_rows < 1)
-    band_rows = 1;
+  unsigned band_rows;
+  if (band_target == 0)
+  {
+    band_rows = height; /* single band - no split, no ESC*rC mid-page */
+  }
+  else
+  {
+    band_rows = (unsigned)(band_target / bpl);
+    if (band_rows < 1)
+      band_rows = 1;
+  }
 
   DBG("page=%d banding: bpl=%u band_rows=%u (~%.1fMB/band) bands=%u\n",
       page_num, bpl, band_rows, band_rows * (double)bpl / 1e6,
@@ -1096,6 +1118,23 @@ main(int argc, char *argv[])
       if (v > 0.0)
         gamma = v;
     }
+
+    /* Banding picks a preset; BandBytes overrides it with an exact figure
+     * for tuning. Both are escape hatches - the default is no splitting. */
+    const char *bnd = cupsGetOption("Banding", num_options, options);
+    if (bnd)
+    {
+      if (!strcasecmp(bnd, "2MB"))
+        band_target = 2 * 1024 * 1024;
+      else if (!strcasecmp(bnd, "8MB"))
+        band_target = 8 * 1024 * 1024;
+      else
+        band_target = 0; /* Off */
+    }
+
+    const char *bt = cupsGetOption("BandBytes", num_options, options);
+    if (bt)
+      band_target = (size_t)strtoull(bt, NULL, 10);
 
     const char *bg = cupsGetOption("BlackGeneration", num_options, options);
     if (bg)

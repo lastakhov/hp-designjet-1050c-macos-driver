@@ -11,7 +11,7 @@
 *% HP RTL Reference Guide (5961-3526).
 *%
 *FormatVersion: "4.3"
-*FileVersion: "1.2.0"
+*FileVersion: "1.2.1"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "HPDJ1050.PPD"
@@ -200,6 +200,23 @@
 *ColorModel RGB/Color - printer decides ink (legacy): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *ColorModel Gray/Black ink only: "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *CloseUI: *ColorModel
+
+*% Whether the page is split into several Start/End Raster Graphics blocks.
+*% Off - one block for the whole page - is both the default and the form
+*% HP's own examples use. Splitting was tried as a defence against the
+*% device running out of memory, but it introduced visible seams across
+*% flat tone at exactly one band's spacing, because End Raster Graphics
+*% moves the CAP and zero-fills the area it moves through. Memory is
+*% already handled by the negative-motion-off command the driver sends,
+*% which lets the device print as data arrives. Keep this Off unless a very
+*% large job loses its bottom edge, in which case try 8 MB.
+*OpenUI *Banding/Raster Banding: PickOne
+*OrderDependency: 10 AnySetup *Banding
+*DefaultBanding: Off
+*Banding Off/Off - one block per page (recommended): ""
+*Banding 8MB/8 MB blocks: ""
+*Banding 2MB/2 MB blocks: ""
+*CloseUI: *Banding
 
 *% How much of a neutral is printed with black ink rather than mixed from
 *% cyan, magenta and yellow. Full sends every neutral to black, which is
