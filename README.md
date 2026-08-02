@@ -86,9 +86,21 @@ around 100 KB, and its lines are drawn rather than built out of dots.
 - **Black Generation** — how much of a neutral is printed with black ink
   rather than mixed from CMY: `Full` (default, best for line work) through
   `Heavy`, `Medium` and `Light` (richer photographic shadows). Pure black
-  stays pure black ink at every setting. Ignored in `RGB` mode.
-- **Halftone Method** — `Ordered` (default) or `Diffusion`. Only applies to
-  the separated modes; in `RGB` the printer does its own halftoning.
+  stays pure black ink at every setting. `KCMY` only.
+- **Halftone Method** — `Ordered` (default) or `Diffusion`. Applies to the
+  separated modes; in `RGB` the printer does its own halftoning.
+
+Which options actually do anything depends on the colour mode:
+
+| | Black Generation | Halftone Method | Ink Density |
+| --- | --- | --- | --- |
+| `KCMY` | yes | yes | yes |
+| `Gray` | no | yes | yes |
+| `RGB` | no | no | yes |
+
+`Gray` ignores black generation because it has a single black plane and no
+chromatic channels to move a grey component out of. `RGB` ignores both
+because separation and halftoning are left to the printer.
 - **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
   Applied as a 256-entry lookup table using the transfer function HP's
   reference guide specifies for this printer family. HP suggests ~2.5 for a

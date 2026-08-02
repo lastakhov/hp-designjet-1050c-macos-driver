@@ -207,7 +207,9 @@
 *% Backing it off raises the tone at which black *starts* instead of
 *% scaling black down, so pure black still prints as pure black ink at
 *% every setting - otherwise softening this for photographs would put
-*% coloured ink back underneath black text. Ignored in RGB mode.
+*% coloured ink back underneath black text. Applies to KCMY only: RGB
+*% leaves separation to the printer, and Gray has a single black plane with
+*% no chromatic channels to move a grey component out of.
 *OpenUI *BlackGeneration/Black Generation: PickOne
 *OrderDependency: 10 AnySetup *BlackGeneration
 *DefaultBlackGeneration: Full
