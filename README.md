@@ -34,7 +34,7 @@ To build and install from source in one step:
 
 ```bash
 ./install.sh                 # driver only
-./install.sh 192.168.2.103   # also create the print queues
+./install.sh 192.168.1.100   # also create the print queues
 ```
 
 Then add the printer through **System Settings → Printers & Scanners →

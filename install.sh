@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./install.sh                 # just install the driver files
-#   ./install.sh 192.168.2.103   # also register both print queues at that IP
+#   ./install.sh 192.168.1.100   # also register both print queues at that IP
 #
 # Two queues are registered when an IP is given:
 #   HP-DesignJet-1050C       rasterizes any document (PDF/Preview/Word/...)

@@ -13,7 +13,8 @@ FILTER_DIR = /Library/Printers/HPDesignJet1050C
 PPD_DIR    = /Library/Printers/PPDs/Contents/Resources
 QUEUE      = HP-DesignJet-1050C
 RAW_QUEUE  = HP-DesignJet-1050C-Raw
-PRINTER_IP = 192.168.2.103
+# Override for your own plotter, e.g. make queue PRINTER_IP=192.168.2.103
+PRINTER_IP ?= 192.168.1.100
 
 PKG_ID      = com.local.hpdesignjet1050c
 PKG_VERSION = 1.0
