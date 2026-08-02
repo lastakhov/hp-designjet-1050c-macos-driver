@@ -17,7 +17,7 @@ RAW_QUEUE  = HP-DesignJet-1050C-Raw
 PRINTER_IP ?= 192.168.1.100
 
 PKG_ID      = com.local.hpdesignjet1050c
-PKG_VERSION = 1.2.1
+PKG_VERSION = 1.2.2
 PKG_ROOT    = build/pkgroot
 PKG_OUT     = build/HP-DesignJet-1050C-Driver.pkg
 
@@ -45,6 +45,7 @@ install: $(FILTER)
 	sudo mkdir -p $(PPD_DIR)
 	sudo install -m 644 -o root -g wheel $(PPD_FILE) $(PPD_DIR)/HP-DesignJet_1050C.ppd
 	sudo install -m 644 -o root -g wheel $(PPD_RAW_FILE) $(PPD_DIR)/HP-DesignJet_1050C_Raw.ppd
+	sudo install -m 644 -o root -g wheel LICENSE $(FILTER_DIR)/LICENSE
 	sudo launchctl kickstart -k system/org.cups.cupsd || true
 
 uninstall:
@@ -78,6 +79,7 @@ pkg: $(FILTER)
 	install -m 755 $(FILTER) $(PKG_ROOT)$(FILTER_DIR)/rastertohpgl2rtl
 	install -m 644 $(PPD_FILE) $(PKG_ROOT)$(PPD_DIR)/HP-DesignJet_1050C.ppd
 	install -m 644 $(PPD_RAW_FILE) $(PKG_ROOT)$(PPD_DIR)/HP-DesignJet_1050C_Raw.ppd
+	install -m 644 LICENSE $(PKG_ROOT)$(FILTER_DIR)/LICENSE
 	mkdir -p build
 	pkgbuild \
 		--root $(PKG_ROOT) \

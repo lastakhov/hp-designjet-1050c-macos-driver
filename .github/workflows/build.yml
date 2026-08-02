@@ -61,6 +61,9 @@ jobs:
           grep -q 'Library/Printers/HPDesignJet1050C/rastertohpgl2rtl' /tmp/payload.txt
           grep -q 'HP-DesignJet_1050C.ppd' /tmp/payload.txt
           grep -q 'HP-DesignJet_1050C_Raw.ppd' /tmp/payload.txt
+          # GPL: the licence has to travel with the binaries, not just sit
+          # in the repository.
+          grep -q 'Library/Printers/HPDesignJet1050C/LICENSE' /tmp/payload.txt
 
       - name: Upload installer package
         uses: actions/upload-artifact@v4
