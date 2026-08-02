@@ -1,0 +1,17 @@
+#!/bin/bash
+# Runs as root during pkg installation. Fixes ownership on the files
+# pkgbuild just laid down and restarts cupsd so it picks up the new PPD
+# without requiring a reboot or logout.
+set -e
+
+FILTER_DIR="/Library/Printers/HPDesignJet1050C"
+PPD_DIR="/Library/Printers/PPDs/Contents/Resources"
+
+chown root:wheel "$FILTER_DIR/rastertohpgl2rtl" 2>/dev/null || true
+chmod 755 "$FILTER_DIR/rastertohpgl2rtl" 2>/dev/null || true
+chown root:wheel "$PPD_DIR/HP-DesignJet_1050C.ppd" 2>/dev/null || true
+chmod 644 "$PPD_DIR/HP-DesignJet_1050C.ppd" 2>/dev/null || true
+
+launchctl kickstart -k system/org.cups.cupsd 2>/dev/null || true
+
+exit 0

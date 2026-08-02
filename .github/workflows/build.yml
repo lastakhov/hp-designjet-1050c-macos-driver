@@ -1,0 +1,62 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          clang --version
+          cups-config --version
+
+      - name: Build filter (universal x86_64 + arm64)
+        run: make
+
+      - name: Check the binary really is universal
+        run: |
+          lipo -info filter/rastertohpgl2rtl
+          lipo -info filter/rastertohpgl2rtl | grep -q x86_64
+          lipo -info filter/rastertohpgl2rtl | grep -q arm64
+
+      # cupstestppd exits non-zero on FAIL but zero on warnings, so this
+      # gates real PPD errors without tripping over cosmetic naming notes.
+      - name: Validate PPDs
+        run: |
+          cupstestppd ppd/HP-DesignJet_1050C.ppd
+          cupstestppd ppd/HP-DesignJet_1050C_Raw.ppd
+
+      - name: Check the PPD points at where the filter is installed
+        run: |
+          grep -q '/Library/Printers/HPDesignJet1050C/rastertohpgl2rtl' \
+            ppd/HP-DesignJet_1050C.ppd
+
+      - name: Round-trip test the raster encoder
+        run: make test
+
+      - name: Build installer package
+        run: make pkg
+
+      - name: Check the package payload
+        run: |
+          pkgutil --payload-files build/HP-DesignJet-1050C-Driver.pkg \
+            | tee /tmp/payload.txt
+          grep -q 'Library/Printers/HPDesignJet1050C/rastertohpgl2rtl' /tmp/payload.txt
+          grep -q 'HP-DesignJet_1050C.ppd' /tmp/payload.txt
+          grep -q 'HP-DesignJet_1050C_Raw.ppd' /tmp/payload.txt
+
+      - name: Upload installer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: HP-DesignJet-1050C-Driver-pkg
+          path: build/HP-DesignJet-1050C-Driver.pkg
+          if-no-files-found: error

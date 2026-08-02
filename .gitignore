@@ -1,0 +1,7 @@
+# Build output
+build/
+filter/rastertohpgl2rtl
+
+# Local machine state
+.claude/settings.local.json
+.DS_Store

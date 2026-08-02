@@ -1,0 +1,52 @@
+*PPD-Adobe: "4.3"
+*%
+*% Filterless pass-through PPD for HP DesignJet 1050C. Apple's CUPS build
+*% removed support for the classic "-m raw" queue model, so this PPD
+*% stands in for it: *cupsFilter2's filter field of "-" tells CUPS no
+*% conversion is needed - the submitted file (an HP-GL/2 .plt/.hpgl
+*% export from CAD software) is sent to the socket backend byte-for-byte.
+*% This is the plotter's native vector language: no rasterization,
+*% smaller jobs, sharper lines than the general rastertohpgl2rtl queue.
+*%
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "HPDJRAW.PPD"
+*Manufacturer: "HP"
+*Product: "(DesignJet 1050C)"
+*ModelName: "HP DesignJet 1050C Raw HPGL2 Passthrough"
+*ShortNickName: "HP DesignJet 1050C Raw"
+*NickName: "HP DesignJet 1050C, Raw HP-GL/2 Passthrough"
+*PSVersion: "(none) 0"
+*LanguageLevel: "0"
+*ColorDevice: True
+*DefaultColorSpace: RGB
+*FileSystem: False
+*Throughput: "1"
+*TTRasterizer: None
+*cupsVersion: 2.3
+*cupsManualCopies: True
+*cupsModelNumber: 1051
+*cupsFilter2: "application/octet-stream application/octet-stream 0 -"
+*cupsFilter2: "text/plain application/octet-stream 0 -"
+
+*OpenUI *PageSize/Media Size: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: ARCHD
+*PageSize ARCHD/Arch D 24x36in (set by the HPGL2 file itself): ""
+*CloseUI: *PageSize
+
+*OpenUI *PageRegion/Media Size: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: ARCHD
+*PageRegion ARCHD/Arch D 24x36in (set by the HPGL2 file itself): ""
+*CloseUI: *PageRegion
+
+*DefaultPaperDimension: ARCHD
+*PaperDimension ARCHD/Arch D 24x36in (set by the HPGL2 file itself): "1728 2592"
+
+*DefaultImageableArea: ARCHD
+*ImageableArea ARCHD/Arch D 24x36in (set by the HPGL2 file itself): "0 0 1728 2592"
+
+*%End of PPD file.

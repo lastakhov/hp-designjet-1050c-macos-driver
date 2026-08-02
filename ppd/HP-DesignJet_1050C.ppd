@@ -1,0 +1,210 @@
+*PPD-Adobe: "4.3"
+*%
+*% PPD for HP DesignJet 1050C (C6074A, E-size/36in) via native
+*% HP-GL/2 + HP RTL, wrapped in PJL. Confirmed by direct SNMP query of
+*% the printer (hpicPrinter MIB): COMMAND SET: PML,MLC,PJL,HP-GL,HP-GL/2,RTL
+*% No PCL, no PostScript on this unit.
+*%
+*% Raster pages are converted by the "rastertohpgl2rtl" CUPS filter into
+*% a PJL job wrapper + HP-GL/2 prologue + HP RTL raster block (24-bit
+*% direct-by-pixel RGB, TIFF-Packbits compressed), per the HP-GL/2 and
+*% HP RTL Reference Guide (5961-3526).
+*%
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "HPDJ1050.PPD"
+*Manufacturer: "HP"
+*Product: "(DesignJet 1050C)"
+*ModelName: "HP DesignJet 1050C HP-GL2+RTL"
+*ShortNickName: "HP DesignJet 1050C RTL"
+*NickName: "HP DesignJet 1050C, HP-GL/2+RTL"
+*PSVersion: "(none) 0"
+*LanguageLevel: "0"
+*ColorDevice: True
+*DefaultColorSpace: RGB
+*FileSystem: False
+*Throughput: "1"
+*LandscapeOrientation: Plus90
+*TTRasterizer: None
+*cupsVersion: 2.3
+*cupsManualCopies: True
+*cupsModelNumber: 1050
+*cupsFilter2: "application/vnd.cups-raster application/octet-stream 0 /Library/Printers/HPDesignJet1050C/rastertohpgl2rtl"
+
+*OpenUI *PageSize/Media Size: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: ARCHD
+*PageSize Letter/US Letter: "<</PageSize[612 792]/ImagingBBox null>>setpagedevice"
+*PageSize Letter.Transverse/US Letter Landscape (wide edge first): "<</PageSize[792 612]/ImagingBBox null>>setpagedevice"
+*PageSize A4/A4: "<</PageSize[595 842]/ImagingBBox null>>setpagedevice"
+*PageSize A4.Transverse/A4 Landscape (wide edge first): "<</PageSize[842 595]/ImagingBBox null>>setpagedevice"
+*PageSize A3/A3: "<</PageSize[842 1191]/ImagingBBox null>>setpagedevice"
+*PageSize A3.Transverse/A3 Landscape (wide edge first): "<</PageSize[1191 842]/ImagingBBox null>>setpagedevice"
+*PageSize A2/A2: "<</PageSize[1191 1684]/ImagingBBox null>>setpagedevice"
+*PageSize A2.Transverse/A2 Landscape (wide edge first): "<</PageSize[1684 1191]/ImagingBBox null>>setpagedevice"
+*PageSize A1/A1: "<</PageSize[1684 2384]/ImagingBBox null>>setpagedevice"
+*PageSize A1.Transverse/A1 Landscape (wide edge first): "<</PageSize[2384 1684]/ImagingBBox null>>setpagedevice"
+*PageSize A0/A0: "<</PageSize[2384 3370]/ImagingBBox null>>setpagedevice"
+*PageSize Tabloid/ANSI B (11x17 in): "<</PageSize[792 1224]/ImagingBBox null>>setpagedevice"
+*PageSize Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "<</PageSize[1224 792]/ImagingBBox null>>setpagedevice"
+*PageSize AnsiC/ANSI C (17x22 in): "<</PageSize[1224 1584]/ImagingBBox null>>setpagedevice"
+*PageSize AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "<</PageSize[1584 1224]/ImagingBBox null>>setpagedevice"
+*PageSize AnsiD/ANSI D (22x34 in): "<</PageSize[1584 2448]/ImagingBBox null>>setpagedevice"
+*PageSize AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "<</PageSize[2448 1584]/ImagingBBox null>>setpagedevice"
+*PageSize AnsiE/ANSI E (34x44 in): "<</PageSize[2448 3168]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHA/Arch A (9x12 in): "<</PageSize[648 864]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "<</PageSize[864 648]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHB/Arch B (12x18 in): "<</PageSize[864 1296]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "<</PageSize[1296 864]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHC/Arch C (18x24 in): "<</PageSize[1296 1728]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "<</PageSize[1728 1296]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHD/Arch D (24x36 in): "<</PageSize[1728 2592]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "<</PageSize[2592 1728]/ImagingBBox null>>setpagedevice"
+*PageSize ARCHE/Arch E (36x48 in): "<</PageSize[2592 3456]/ImagingBBox null>>setpagedevice"
+*PageSize Custom/Custom Roll Length: "<</PageSize[2592 3456]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageSize
+
+*OpenUI *PageRegion/Media Size: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: ARCHD
+*PageRegion Letter/US Letter: "<</PageSize[612 792]/ImagingBBox null>>setpagedevice"
+*PageRegion Letter.Transverse/US Letter Landscape (wide edge first): "<</PageSize[792 612]/ImagingBBox null>>setpagedevice"
+*PageRegion A4/A4: "<</PageSize[595 842]/ImagingBBox null>>setpagedevice"
+*PageRegion A4.Transverse/A4 Landscape (wide edge first): "<</PageSize[842 595]/ImagingBBox null>>setpagedevice"
+*PageRegion A3/A3: "<</PageSize[842 1191]/ImagingBBox null>>setpagedevice"
+*PageRegion A3.Transverse/A3 Landscape (wide edge first): "<</PageSize[1191 842]/ImagingBBox null>>setpagedevice"
+*PageRegion A2/A2: "<</PageSize[1191 1684]/ImagingBBox null>>setpagedevice"
+*PageRegion A2.Transverse/A2 Landscape (wide edge first): "<</PageSize[1684 1191]/ImagingBBox null>>setpagedevice"
+*PageRegion A1/A1: "<</PageSize[1684 2384]/ImagingBBox null>>setpagedevice"
+*PageRegion A1.Transverse/A1 Landscape (wide edge first): "<</PageSize[2384 1684]/ImagingBBox null>>setpagedevice"
+*PageRegion A0/A0: "<</PageSize[2384 3370]/ImagingBBox null>>setpagedevice"
+*PageRegion Tabloid/ANSI B (11x17 in): "<</PageSize[792 1224]/ImagingBBox null>>setpagedevice"
+*PageRegion Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "<</PageSize[1224 792]/ImagingBBox null>>setpagedevice"
+*PageRegion AnsiC/ANSI C (17x22 in): "<</PageSize[1224 1584]/ImagingBBox null>>setpagedevice"
+*PageRegion AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "<</PageSize[1584 1224]/ImagingBBox null>>setpagedevice"
+*PageRegion AnsiD/ANSI D (22x34 in): "<</PageSize[1584 2448]/ImagingBBox null>>setpagedevice"
+*PageRegion AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "<</PageSize[2448 1584]/ImagingBBox null>>setpagedevice"
+*PageRegion AnsiE/ANSI E (34x44 in): "<</PageSize[2448 3168]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHA/Arch A (9x12 in): "<</PageSize[648 864]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "<</PageSize[864 648]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHB/Arch B (12x18 in): "<</PageSize[864 1296]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "<</PageSize[1296 864]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHC/Arch C (18x24 in): "<</PageSize[1296 1728]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "<</PageSize[1728 1296]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHD/Arch D (24x36 in): "<</PageSize[1728 2592]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "<</PageSize[2592 1728]/ImagingBBox null>>setpagedevice"
+*PageRegion ARCHE/Arch E (36x48 in): "<</PageSize[2592 3456]/ImagingBBox null>>setpagedevice"
+*PageRegion Custom/Custom Roll Length: "<</PageSize[2592 3456]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageRegion
+
+*DefaultImageableArea: ARCHD
+*ImageableArea Letter/US Letter: "0 0 612 792"
+*ImageableArea Letter.Transverse/US Letter Landscape (wide edge first): "0 0 792 612"
+*ImageableArea A4/A4: "0 0 595 842"
+*ImageableArea A4.Transverse/A4 Landscape (wide edge first): "0 0 842 595"
+*ImageableArea A3/A3: "0 0 842 1191"
+*ImageableArea A3.Transverse/A3 Landscape (wide edge first): "0 0 1191 842"
+*ImageableArea A2/A2: "0 0 1191 1684"
+*ImageableArea A2.Transverse/A2 Landscape (wide edge first): "0 0 1684 1191"
+*ImageableArea A1/A1: "0 0 1684 2384"
+*ImageableArea A1.Transverse/A1 Landscape (wide edge first): "0 0 2384 1684"
+*ImageableArea A0/A0: "0 0 2384 3370"
+*ImageableArea Tabloid/ANSI B (11x17 in): "0 0 792 1224"
+*ImageableArea Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "0 0 1224 792"
+*ImageableArea AnsiC/ANSI C (17x22 in): "0 0 1224 1584"
+*ImageableArea AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "0 0 1584 1224"
+*ImageableArea AnsiD/ANSI D (22x34 in): "0 0 1584 2448"
+*ImageableArea AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "0 0 2448 1584"
+*ImageableArea AnsiE/ANSI E (34x44 in): "0 0 2448 3168"
+*ImageableArea ARCHA/Arch A (9x12 in): "0 0 648 864"
+*ImageableArea ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "0 0 864 648"
+*ImageableArea ARCHB/Arch B (12x18 in): "0 0 864 1296"
+*ImageableArea ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "0 0 1296 864"
+*ImageableArea ARCHC/Arch C (18x24 in): "0 0 1296 1728"
+*ImageableArea ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "0 0 1728 1296"
+*ImageableArea ARCHD/Arch D (24x36 in): "0 0 1728 2592"
+*ImageableArea ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "0 0 2592 1728"
+*ImageableArea ARCHE/Arch E (36x48 in): "0 0 2592 3456"
+*ImageableArea Custom/Custom Roll Length: "0 0 2592 3456"
+
+*DefaultPaperDimension: ARCHD
+*PaperDimension Letter/US Letter: "612 792"
+*PaperDimension Letter.Transverse/US Letter Landscape (wide edge first): "792 612"
+*PaperDimension A4/A4: "595 842"
+*PaperDimension A4.Transverse/A4 Landscape (wide edge first): "842 595"
+*PaperDimension A3/A3: "842 1191"
+*PaperDimension A3.Transverse/A3 Landscape (wide edge first): "1191 842"
+*PaperDimension A2/A2: "1191 1684"
+*PaperDimension A2.Transverse/A2 Landscape (wide edge first): "1684 1191"
+*PaperDimension A1/A1: "1684 2384"
+*PaperDimension A1.Transverse/A1 Landscape (wide edge first): "2384 1684"
+*PaperDimension A0/A0: "2384 3370"
+*PaperDimension Tabloid/ANSI B (11x17 in): "792 1224"
+*PaperDimension Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "1224 792"
+*PaperDimension AnsiC/ANSI C (17x22 in): "1224 1584"
+*PaperDimension AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "1584 1224"
+*PaperDimension AnsiD/ANSI D (22x34 in): "1584 2448"
+*PaperDimension AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "2448 1584"
+*PaperDimension AnsiE/ANSI E (34x44 in): "2448 3168"
+*PaperDimension ARCHA/Arch A (9x12 in): "648 864"
+*PaperDimension ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "864 648"
+*PaperDimension ARCHB/Arch B (12x18 in): "864 1296"
+*PaperDimension ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "1296 864"
+*PaperDimension ARCHC/Arch C (18x24 in): "1296 1728"
+*PaperDimension ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "1728 1296"
+*PaperDimension ARCHD/Arch D (24x36 in): "1728 2592"
+*PaperDimension ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "2592 1728"
+*PaperDimension ARCHE/Arch E (36x48 in): "2592 3456"
+*PaperDimension Custom/Custom Roll Length: "2592 3456"
+
+*MaxMediaWidth: 2592
+*MaxMediaHeight: 129600
+*MinMediaWidth: 216
+*MinMediaHeight: 216
+*HWMargins: 0 0 0 0
+*CustomPageSize True: "pop pop pop <</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice"
+*ParamCustomPageSize Width: 1 points 216 2592
+*ParamCustomPageSize Height: 2 points 216 129600
+*ParamCustomPageSize WidthOffset: 3 points 0 0
+*ParamCustomPageSize HeightOffset: 4 points 0 0
+*ParamCustomPageSize Orientation: 5 int 0 0
+
+*OpenUI *Resolution/Print Resolution: PickOne
+*OrderDependency: 10 AnySetup *Resolution
+*DefaultResolution: 300dpi
+*Resolution 300dpi/300 DPI (Fast): "<</HWResolution[300 300]>>setpagedevice"
+*Resolution 600dpi/600 DPI (Best): "<</HWResolution[600 600]>>setpagedevice"
+*CloseUI: *Resolution
+
+*OpenUI *ColorModel/Color Mode: PickOne
+*OrderDependency: 10 AnySetup *ColorModel
+*DefaultColorModel: RGB
+*ColorModel RGB/Color (24-bit RGB): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*ColorModel Gray/Grayscale (as RGB): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*CloseUI: *ColorModel
+
+*% Driver-side gamma correction, applied by rastertohpgl2rtl as a 256-entry
+*% lookup table using the transfer function the HP-GL/2 and HP RTL Reference
+*% Guide gives for this printer family: new = (old/255)^(1/gamma) * 255.
+*% Higher gamma lightens the page and uses less ink; lower gamma darkens it
+*% and uses more. The guide notes ~2.5 is typical for a DesignJet on HP
+*% Special Paper. Keywords are "g" + gamma*100 because a bare "2.5" is not a
+*% legal PPD option keyword.
+*OpenUI *Gamma/Ink Density (Gamma): PickOne
+*OrderDependency: 10 AnySetup *Gamma
+*DefaultGamma: g100
+*Gamma g060/0.6 - Much more ink (darkest): ""
+*Gamma g080/0.8 - More ink (darker): ""
+*Gamma g100/1.0 - No correction: ""
+*Gamma g140/1.4 - Less ink (lighter): ""
+*Gamma g180/1.8 - Much less ink: ""
+*Gamma g220/2.2 - sRGB-like: ""
+*Gamma g250/2.5 - HP suggested for DesignJet: ""
+*Gamma g300/3.0 - Least ink (lightest): ""
+*CloseUI: *Gamma
+
+*DefaultFont: Courier
+*Font Courier: Standard "(1.0)" Standard ROM
+*%End of PPD file.
