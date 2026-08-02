@@ -70,6 +70,10 @@ whose `cupsFilter2` filter field is `-` (no conversion) instead.
   colour and lets the printer decide how to lay ink down, which is what the
   driver used to do. `Gray` sends a single black plane. See *Colour
   separation* below for the trade-off.
+- **Black Generation** — how much of a neutral is printed with black ink
+  rather than mixed from CMY: `Full` (default, best for line work) through
+  `Heavy`, `Medium` and `Light` (richer photographic shadows). Pure black
+  stays pure black ink at every setting. Ignored in `RGB` mode.
 - **Halftone Method** — `Ordered` (default) or `Diffusion`. Only applies to
   the separated modes; in `RGB` the printer does its own halftoning.
 - **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
@@ -94,6 +98,21 @@ These cost real time to find, and the code comments point back here.
   0 lands at the same (0,0) origin and works.
 - **`@PJL SET MARGINS` has a `SMALLER` setting.** Asking for `NORMAL` costs
   usable page area on every job.
+- **The device shifts rather than clips at the top margin.** Content placed
+  above where the printer is willing to start does not get trimmed off the
+  top — the whole image slides down instead, and whatever then hangs past
+  the bottom is lost. So an under-declared *top* margin shows up as a
+  *bottom* that is cut off, which is thoroughly misleading while debugging.
+  Getting the top value right is what keeps the bottom on the sheet.
+- **Measured margins beat the datasheet here.** HP publishes 17 mm leading
+  and trailing; measured on cut sheet with `MARGINS=SMALLER` the real
+  figures are 12 mm top and 15 mm bottom, with 5 mm sides. Using the
+  published number threw away about 7 mm of usable height. These were
+  obtained with a ruler print, and roll media may differ.
+- **`PAPERWIDTH`/`PAPERLENGTH` describe the sheet, not the printable area.**
+  Deriving them from the raster tells the printer the paper is smaller than
+  it is; it then applies its own margins on top of the already-inset area
+  and clips the bottom.
 - **The stock CUPS socket backend is slow to this printer.** Its small,
   unbuffered writes hit the classic Nagle/delayed-ACK stall against the old
   JetDirect TCP stack. The filter therefore opens its own connection to
@@ -150,9 +169,19 @@ packed byte, so flat areas collapse under Packbits. Error diffusion turns
 the same areas into incompressible noise — 1108 KB against 158 KB on a
 full-page gradient.
 
-Separation currently uses full grey component replacement, so neutrals are
-K only. Partial GCR would give photographic shadows more depth while
-keeping text black, and is the obvious next refinement.
+How much of a neutral goes to black ink is adjustable with **Black
+Generation**. `Full` sends every neutral to K, which is what line work
+wants. Softer settings hold black back in the lighter tones and let CMY
+carry them, which stops photographic shadows going flat.
+
+The softer settings raise the tone at which black *starts* rather than
+scaling black down. That distinction matters: simply multiplying K by some
+factor below 1 would put coloured ink back underneath pure black text and
+undo the thing this was written to fix. Raising the start point instead
+leaves a fully saturated neutral mapping to K=255 at every setting, so
+black stays pure black however far the setting is backed off — verified
+end-to-end by decoding a rendered page and checking that none of its
+23,448 solid-black bytes carry colour underneath, at any setting.
 
 ## Development
 

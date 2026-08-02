@@ -509,6 +509,29 @@ static enum color_mode color_mode = MODE_KCMY;
  * for why ordered is the default despite being the grainier of the two. */
 static int dither_diffuse;
 
+/*
+ * Black start point for grey component replacement, 0..254.
+ *
+ * Grey component replacement takes whatever cyan, magenta and yellow have
+ * in common and moves it into the black channel. Doing that in full (start
+ * = 0) is what stops neutrals being mixed out of coloured inks, and it is
+ * exactly right for text and line work. On photographs it can flatten the
+ * shadows, because everything neutral becomes black ink and nothing else.
+ *
+ * Backing it off is the usual remedy, but the naive way to do that -
+ * scaling K by some factor below 1 - would put coloured ink back underneath
+ * pure black text, undoing the very problem this was written to fix. So
+ * instead of scaling, this raises the point at which black *starts*:
+ *
+ *   K = (min(c,m,y) - start) / (255 - start), clamped at zero
+ *
+ * Light and mid neutrals below the start point are left to CMY, which keeps
+ * photographic shadows from going flat, while anything fully saturated
+ * still maps to K = 255 whatever the setting - so black stays pure black at
+ * every level.
+ */
+static int black_start;
+
 /* Number of 1-bit planes each mode sends per row (0 = chunky RGB). */
 static int
 planes_for_mode(enum color_mode m)
@@ -533,10 +556,10 @@ planes_for_mode(enum color_mode m)
  * the spec requires the least significant plane to be sent first, so
  * ink[0]=K, [1]=C, [2]=M, [3]=Y is also the order they go on the wire.
  *
- * Grey component replacement is total: whatever cyan, magenta and yellow
- * have in common becomes K and is removed from all three. That is the
- * whole point of the exercise - it is what stops neutral tones being
- * mixed out of coloured inks.
+ * How much of the common grey component becomes K is governed by
+ * black_start - see its comment. Whatever K is generated is removed from
+ * all three chromatic channels, so they never re-create what black is
+ * already printing.
  */
 static void
 separate_row(const unsigned char *rgb, unsigned width, enum color_mode mode,
@@ -560,14 +583,30 @@ separate_row(const unsigned char *rgb, unsigned width, enum color_mode mode,
     int m = 255 - g;
     int y = 255 - b;
 
-    int k = c < m ? c : m;
-    if (y < k)
-      k = y;
+    int grey = c < m ? c : m;
+    if (y < grey)
+      grey = y;
+
+    int k;
+    if (black_start <= 0)
+    {
+      k = grey; /* full replacement */
+    }
+    else if (grey <= black_start)
+    {
+      k = 0; /* below the start point, leave the neutral to CMY */
+    }
+    else
+    {
+      /* Ramp from the start point up to full black at 255, so a fully
+       * saturated neutral still lands on exactly K=255. */
+      k = (grey - black_start) * 255 / (255 - black_start);
+    }
 
     ink[0][x] = (unsigned char)k;
-    ink[1][x] = (unsigned char)(c - k);
-    ink[2][x] = (unsigned char)(m - k);
-    ink[3][x] = (unsigned char)(y - k);
+    ink[1][x] = (unsigned char)(c - k < 0 ? 0 : c - k);
+    ink[2][x] = (unsigned char)(m - k < 0 ? 0 : m - k);
+    ink[3][x] = (unsigned char)(y - k < 0 ? 0 : y - k);
   }
 }
 
@@ -1058,6 +1097,19 @@ main(int argc, char *argv[])
         gamma = v;
     }
 
+    const char *bg = cupsGetOption("BlackGeneration", num_options, options);
+    if (bg)
+    {
+      if (!strcasecmp(bg, "Heavy"))
+        black_start = 64;
+      else if (!strcasecmp(bg, "Medium"))
+        black_start = 128;
+      else if (!strcasecmp(bg, "Light"))
+        black_start = 192;
+      else
+        black_start = 0; /* Full */
+    }
+
     const char *dm = cupsGetOption("Dither", num_options, options);
     if (dm && (!strcasecmp(dm, "Diffusion") || !strcasecmp(dm, "FS")))
       dither_diffuse = 1;
@@ -1108,20 +1160,19 @@ main(int argc, char *argv[])
     {
       resolution = header.HWResolution[0] > 0 ? (int)header.HWResolution[0]
                                                : 300;
-      /* Derive the declared media size from the raster itself rather than
-       * from PageSize[]. PageSize is the *unrotated* page in points, so on
-       * a landscape job it stays portrait-shaped while the raster we are
-       * about to send is landscape-shaped - declaring that mismatched,
-       * too-narrow media to the printer invites exactly the kind of
-       * silent edge clipping that the PS length/width mix-up used to
-       * cause. The raster dimensions are the one description of the page
-       * that is always already in final on-media orientation, so PS,
-       * PAPERWIDTH and PAPERLENGTH are all derived from it and can never
-       * disagree with each other. 720 decipoints per inch. */
-      double hx = header.HWResolution[0] > 0 ? header.HWResolution[0] : 300;
-      double hy = header.HWResolution[1] > 0 ? header.HWResolution[1] : 300;
-      unsigned paper_w_dp = (unsigned)lround(header.cupsWidth / hx * 720.0);
-      unsigned paper_l_dp = (unsigned)lround(header.cupsHeight / hy * 720.0);
+      /* PAPERWIDTH/PAPERLENGTH describe the *sheet*, so they come from
+       * PageSize, not from the raster. The raster covers only the
+       * imageable area, and declaring that as the media told the printer
+       * the paper was smaller than it really is - it then applied its own
+       * margins on top of our already-inset area and clipped the bottom.
+       *
+       * Taking these from PageSize is safe in landscape too: CUPS always
+       * hands over a raster in the physical orientation of the media, and
+       * PageSize follows the selected media the same way, including the
+       * .Transverse sizes. PageSize is in points, PJL wants decipoints -
+       * exactly 10x. */
+      unsigned paper_w_dp = (unsigned)header.PageSize[0] * 10;
+      unsigned paper_l_dp = (unsigned)header.PageSize[1] * 10;
       emit_job_header(title, resolution, paper_w_dp, paper_l_dp);
     }
 
