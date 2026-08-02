@@ -1,4 +1,11 @@
 #!/bin/bash
+# Copyright (C) 2026 Leonid Astakhov
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version. See the LICENSE file for details.
+
 # Builds and installs the HP DesignJet 1050C CUPS driver (PPD + HP-GL/2/RTL
 # filter) from source. Alternative to the prebuilt .pkg (`make pkg`) for
 # anyone who'd rather build locally. Requires Xcode Command Line Tools
