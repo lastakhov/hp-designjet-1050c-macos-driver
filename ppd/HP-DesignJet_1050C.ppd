@@ -11,7 +11,7 @@
 *% HP RTL Reference Guide (5961-3526).
 *%
 *FormatVersion: "4.3"
-*FileVersion: "1.1.0"
+*FileVersion: "1.2.0"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "HPDJ1050.PPD"
@@ -99,35 +99,42 @@
 *PageRegion Custom/Custom Roll Length: "<</PageSize[2592 3456]/ImagingBBox null>>setpagedevice"
 *CloseUI: *PageRegion
 
+*% Margins measured on the hardware with a ruler print, not taken from
+*% the datasheet: 5 mm sides, 12 mm top, 15 mm bottom on cut sheet with
+*% @PJL SET MARGINS=SMALLER. HP's published figure of 17 mm leading and
+*% trailing is the conservative/roll case and cost usable page area.
+*% Note the device does not clip content that falls outside its top
+*% margin - it shifts the whole image down instead, so getting the top
+*% value right is what stops the bottom running off the sheet.
 *DefaultImageableArea: ARCHD
-*ImageableArea Letter/US Letter: "0 0 612 792"
-*ImageableArea Letter.Transverse/US Letter Landscape (wide edge first): "0 0 792 612"
-*ImageableArea A4/A4: "0 0 595 842"
-*ImageableArea A4.Transverse/A4 Landscape (wide edge first): "0 0 842 595"
-*ImageableArea A3/A3: "0 0 842 1191"
-*ImageableArea A3.Transverse/A3 Landscape (wide edge first): "0 0 1191 842"
-*ImageableArea A2/A2: "0 0 1191 1684"
-*ImageableArea A2.Transverse/A2 Landscape (wide edge first): "0 0 1684 1191"
-*ImageableArea A1/A1: "0 0 1684 2384"
-*ImageableArea A1.Transverse/A1 Landscape (wide edge first): "0 0 2384 1684"
-*ImageableArea A0/A0: "0 0 2384 3370"
-*ImageableArea Tabloid/ANSI B (11x17 in): "0 0 792 1224"
-*ImageableArea Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "0 0 1224 792"
-*ImageableArea AnsiC/ANSI C (17x22 in): "0 0 1224 1584"
-*ImageableArea AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "0 0 1584 1224"
-*ImageableArea AnsiD/ANSI D (22x34 in): "0 0 1584 2448"
-*ImageableArea AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "0 0 2448 1584"
-*ImageableArea AnsiE/ANSI E (34x44 in): "0 0 2448 3168"
-*ImageableArea ARCHA/Arch A (9x12 in): "0 0 648 864"
-*ImageableArea ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "0 0 864 648"
-*ImageableArea ARCHB/Arch B (12x18 in): "0 0 864 1296"
-*ImageableArea ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "0 0 1296 864"
-*ImageableArea ARCHC/Arch C (18x24 in): "0 0 1296 1728"
-*ImageableArea ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "0 0 1728 1296"
-*ImageableArea ARCHD/Arch D (24x36 in): "0 0 1728 2592"
-*ImageableArea ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "0 0 2592 1728"
-*ImageableArea ARCHE/Arch E (36x48 in): "0 0 2592 3456"
-*ImageableArea Custom/Custom Roll Length: "0 0 2592 3456"
+*ImageableArea Letter/US Letter: "14.17 42.52 597.83 757.98"
+*ImageableArea Letter.Transverse/US Letter Landscape (wide edge first): "14.17 42.52 777.83 577.98"
+*ImageableArea A4/A4: "14.17 42.52 580.83 807.98"
+*ImageableArea A4.Transverse/A4 Landscape (wide edge first): "14.17 42.52 827.83 560.98"
+*ImageableArea A3/A3: "14.17 42.52 827.83 1156.98"
+*ImageableArea A3.Transverse/A3 Landscape (wide edge first): "14.17 42.52 1176.83 807.98"
+*ImageableArea A2/A2: "14.17 42.52 1176.83 1649.98"
+*ImageableArea A2.Transverse/A2 Landscape (wide edge first): "14.17 42.52 1669.83 1156.98"
+*ImageableArea A1/A1: "14.17 42.52 1669.83 2349.98"
+*ImageableArea A1.Transverse/A1 Landscape (wide edge first): "14.17 42.52 2369.83 1649.98"
+*ImageableArea A0/A0: "14.17 42.52 2369.83 3335.98"
+*ImageableArea Tabloid/ANSI B (11x17 in): "14.17 42.52 777.83 1189.98"
+*ImageableArea Tabloid.Transverse/ANSI B (11x17 in) Landscape (wide edge first): "14.17 42.52 1209.83 757.98"
+*ImageableArea AnsiC/ANSI C (17x22 in): "14.17 42.52 1209.83 1549.98"
+*ImageableArea AnsiC.Transverse/ANSI C (17x22 in) Landscape (wide edge first): "14.17 42.52 1569.83 1189.98"
+*ImageableArea AnsiD/ANSI D (22x34 in): "14.17 42.52 1569.83 2413.98"
+*ImageableArea AnsiD.Transverse/ANSI D (22x34 in) Landscape (wide edge first): "14.17 42.52 2433.83 1549.98"
+*ImageableArea AnsiE/ANSI E (34x44 in): "14.17 42.52 2433.83 3133.98"
+*ImageableArea ARCHA/Arch A (9x12 in): "14.17 42.52 633.83 829.98"
+*ImageableArea ARCHA.Transverse/Arch A (9x12 in) Landscape (wide edge first): "14.17 42.52 849.83 613.98"
+*ImageableArea ARCHB/Arch B (12x18 in): "14.17 42.52 849.83 1261.98"
+*ImageableArea ARCHB.Transverse/Arch B (12x18 in) Landscape (wide edge first): "14.17 42.52 1281.83 829.98"
+*ImageableArea ARCHC/Arch C (18x24 in): "14.17 42.52 1281.83 1693.98"
+*ImageableArea ARCHC.Transverse/Arch C (18x24 in) Landscape (wide edge first): "14.17 42.52 1713.83 1261.98"
+*ImageableArea ARCHD/Arch D (24x36 in): "14.17 42.52 1713.83 2557.98"
+*ImageableArea ARCHD.Transverse/Arch D (24x36 in) Landscape (wide edge first): "14.17 42.52 2577.83 1693.98"
+*ImageableArea ARCHE/Arch E (36x48 in): "14.17 42.52 2577.83 3421.98"
+*ImageableArea Custom/Custom Roll Length: "14.17 42.52 2577.83 3421.98"
 
 *DefaultPaperDimension: ARCHD
 *PaperDimension Letter/US Letter: "612 792"
@@ -163,7 +170,7 @@
 *MaxMediaHeight: 129600
 *MinMediaWidth: 216
 *MinMediaHeight: 216
-*HWMargins: 0 0 0 0
+*HWMargins: 14.17 42.52 14.17 34.02
 *CustomPageSize True: "pop pop pop <</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice"
 *ParamCustomPageSize Width: 1 points 216 2592
 *ParamCustomPageSize Height: 2 points 216 129600

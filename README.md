@@ -98,6 +98,21 @@ These cost real time to find, and the code comments point back here.
   0 lands at the same (0,0) origin and works.
 - **`@PJL SET MARGINS` has a `SMALLER` setting.** Asking for `NORMAL` costs
   usable page area on every job.
+- **The device shifts rather than clips at the top margin.** Content placed
+  above where the printer is willing to start does not get trimmed off the
+  top — the whole image slides down instead, and whatever then hangs past
+  the bottom is lost. So an under-declared *top* margin shows up as a
+  *bottom* that is cut off, which is thoroughly misleading while debugging.
+  Getting the top value right is what keeps the bottom on the sheet.
+- **Measured margins beat the datasheet here.** HP publishes 17 mm leading
+  and trailing; measured on cut sheet with `MARGINS=SMALLER` the real
+  figures are 12 mm top and 15 mm bottom, with 5 mm sides. Using the
+  published number threw away about 7 mm of usable height. These were
+  obtained with a ruler print, and roll media may differ.
+- **`PAPERWIDTH`/`PAPERLENGTH` describe the sheet, not the printable area.**
+  Deriving them from the raster tells the printer the paper is smaller than
+  it is; it then applies its own margins on top of the already-inset area
+  and clips the bottom.
 - **The stock CUPS socket backend is slow to this printer.** Its small,
   unbuffered writes hit the classic Nagle/delayed-ACK stall against the old
   JetDirect TCP stack. The filter therefore opens its own connection to

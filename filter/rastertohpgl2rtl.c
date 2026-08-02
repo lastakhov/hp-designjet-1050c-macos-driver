@@ -1160,20 +1160,19 @@ main(int argc, char *argv[])
     {
       resolution = header.HWResolution[0] > 0 ? (int)header.HWResolution[0]
                                                : 300;
-      /* Derive the declared media size from the raster itself rather than
-       * from PageSize[]. PageSize is the *unrotated* page in points, so on
-       * a landscape job it stays portrait-shaped while the raster we are
-       * about to send is landscape-shaped - declaring that mismatched,
-       * too-narrow media to the printer invites exactly the kind of
-       * silent edge clipping that the PS length/width mix-up used to
-       * cause. The raster dimensions are the one description of the page
-       * that is always already in final on-media orientation, so PS,
-       * PAPERWIDTH and PAPERLENGTH are all derived from it and can never
-       * disagree with each other. 720 decipoints per inch. */
-      double hx = header.HWResolution[0] > 0 ? header.HWResolution[0] : 300;
-      double hy = header.HWResolution[1] > 0 ? header.HWResolution[1] : 300;
-      unsigned paper_w_dp = (unsigned)lround(header.cupsWidth / hx * 720.0);
-      unsigned paper_l_dp = (unsigned)lround(header.cupsHeight / hy * 720.0);
+      /* PAPERWIDTH/PAPERLENGTH describe the *sheet*, so they come from
+       * PageSize, not from the raster. The raster covers only the
+       * imageable area, and declaring that as the media told the printer
+       * the paper was smaller than it really is - it then applied its own
+       * margins on top of our already-inset area and clipped the bottom.
+       *
+       * Taking these from PageSize is safe in landscape too: CUPS always
+       * hands over a raster in the physical orientation of the media, and
+       * PageSize follows the selected media the same way, including the
+       * .Transverse sizes. PageSize is in points, PJL wants decipoints -
+       * exactly 10x. */
+      unsigned paper_w_dp = (unsigned)header.PageSize[0] * 10;
+      unsigned paper_l_dp = (unsigned)header.PageSize[1] * 10;
       emit_job_header(title, resolution, paper_w_dp, paper_l_dp);
     }
 
