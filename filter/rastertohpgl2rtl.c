@@ -29,7 +29,8 @@
  *
  *   ESC E                       Reset
  *   ESC % 0 B                   Enter HP-GL/2 mode
- *   BP5,1;IN;PS w,h;TR0;        Begin plot (no autorotate), init, plot size
+ *   BP5,1;IN;[QL n;]PS w,h;TR0;  Begin plot (no autorotate), init,
+ *                               optional quality level, plot size
  *   ESC % 0 A                   Enter RTL mode (CAP = previous RTL CAP,
  *                               i.e. (0,0) right after Reset - see the
  *                               note by emit_page() on why this is 0 and
@@ -121,6 +122,34 @@
  * enough that this turns out not to be enough.
  */
 static size_t band_target;
+
+/*
+ * HP-GL/2 quality level, 0 (draft) to 100 (best), or -1 to send nothing and
+ * leave the device on whatever its front panel says.
+ *
+ * This is the print-quality control, and it lives in HP-GL/2 rather than
+ * PJL - which is why probing the device over PJL turned up nothing and led
+ * to the wrong conclusion that quality could not be driven from the host at
+ * all. HP's own Windows driver sends QL51 in the picture header. Per the
+ * spec a device "might vary paper speed, resolution, or rasterization
+ * algorithms" in response, which is exactly the multi-pass behaviour that
+ * governs how much banding shows.
+ *
+ * The instruction only takes effect in the picture header state - "you
+ * cannot change quality levels in the picture body state" - so it has to go
+ * out with IN and PS, before any drawing.
+ */
+static int quality_level = -1;
+
+/*
+ * HP RTL render algorithm (ESC*t#J), or -1 to leave the device on its own
+ * default. Values from the spec: 0 device-best, 3/11 pattern dither,
+ * 7 cluster-ordered, 13 scatter dither, and monochrome variants.
+ *
+ * This only applies when the printer is doing the screening, i.e. in RGB
+ * mode. HP's Windows driver sends 13.
+ */
+static int render_algorithm = -1;
 
 static FILE *out; /* Where printer bytes go: direct socket, or stdout. */
 
@@ -766,7 +795,10 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
    * ~130mm measured on paper. It also explains the bogus ~130mm "hardware
    * bottom margin" found during margin calibration: that was never the
    * hardware, it was this clip. */
-  fprintf(out, "BP5,1;IN;PS%ld,%ld;TR0;", plot_h, plot_w);
+  fprintf(out, "BP5,1;IN;");
+  if (quality_level >= 0)
+    fprintf(out, "QL%d;", quality_level);
+  fprintf(out, "PS%ld,%ld;TR0;", plot_h, plot_w);
   /* Enter RTL mode with parameter 0 ("use previous HP RTL CAP", which is
    * (0,0) right after the Reset above) rather than the spec's parameter
    * 1 ("use current HP-GL/2 pen position"). Confirmed by hardware test
@@ -819,6 +851,15 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
     fprintf(out, "\033*v6W");
     unsigned char cfg[6] = {0, 3, 3, 8, 8, 8};
     fwrite(cfg, 1, sizeof(cfg), out);
+
+    /* Pick the halftone the device uses on contone data. Only meaningful
+     * in this mode, where the printer is the one screening the image -
+     * in the separated modes we have already reduced everything to one
+     * bit and there is nothing left for it to halftone. HP's own driver
+     * sends 13 (scatter dither) here rather than relying on the device
+     * default. */
+    if (render_algorithm >= 0)
+      fprintf(out, "\033*t%dJ", render_algorithm);
   }
 
   unsigned char *line = malloc(bpl);
@@ -1138,6 +1179,35 @@ main(int argc, char *argv[])
 
     /* Banding picks a preset; BandBytes overrides it with an exact figure
      * for tuning. Both are escape hatches - the default is no splitting. */
+    const char *ra = cupsGetOption("RenderAlgorithm", num_options, options);
+    if (ra && strcasecmp(ra, "Printer") != 0)
+    {
+      char *end;
+      long v = strtol(ra, &end, 10);
+      if (end != ra && v >= 0 && v <= 14)
+        render_algorithm = (int)v;
+    }
+
+    const char *ql = cupsGetOption("QualityLevel", num_options, options);
+    if (ql && strcasecmp(ql, "Printer") != 0)
+    {
+      if (!strcasecmp(ql, "Draft"))
+        quality_level = 0;
+      else if (!strcasecmp(ql, "Normal"))
+        quality_level = 50;
+      else if (!strcasecmp(ql, "Best"))
+        quality_level = 100;
+      else
+      {
+        /* A bare number is accepted too, for trying values against the
+         * hardware - the device maps unsupported ones to a level it has. */
+        char *end;
+        long v = strtol(ql, &end, 10);
+        if (end != ql && v >= 0 && v <= 100)
+          quality_level = (int)v;
+      }
+    }
+
     const char *bnd = cupsGetOption("Banding", num_options, options);
     if (bnd)
     {

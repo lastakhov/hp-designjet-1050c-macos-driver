@@ -11,7 +11,7 @@
 *% HP RTL Reference Guide (5961-3526).
 *%
 *FormatVersion: "4.3"
-*FileVersion: "1.2.2"
+*FileVersion: "1.3.0"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "HPDJ1050.PPD"
@@ -195,11 +195,44 @@
 *% do; keep it as a fallback. Gray sends a single black plane.
 *OpenUI *ColorModel/Color Mode: PickOne
 *OrderDependency: 10 AnySetup *ColorModel
-*DefaultColorModel: KCMY
-*ColorModel KCMY/Color - true black ink (recommended): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
-*ColorModel RGB/Color - printer decides ink (legacy): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*DefaultColorModel: RGB
+*ColorModel KCMY/Color - separated in driver: "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*ColorModel RGB/Color - printer screens (recommended): "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *ColorModel Gray/Black ink only: "<</cupsColorSpace 1/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
 *CloseUI: *ColorModel
+
+*% Which halftone the *printer* uses, sent as ESC*t#J. Only has an effect
+*% in RGB colour mode, where the device is the one screening the image; the
+*% separated modes have already reduced everything to one bit. HP's own
+*% driver sends 13 (scatter dither). Printer leaves the device on its own
+*% default, which is what this driver did historically.
+*OpenUI *RenderAlgorithm/Printer Halftone: PickOne
+*OrderDependency: 10 AnySetup *RenderAlgorithm
+*DefaultRenderAlgorithm: 13
+*RenderAlgorithm Printer/Device default (bands on flat tone): ""
+*RenderAlgorithm 0/Device best: ""
+*RenderAlgorithm 7/Cluster-ordered dither: ""
+*RenderAlgorithm 11/Pattern dither: ""
+*RenderAlgorithm 13/Scatter dither (HP driver uses this): ""
+*CloseUI: *RenderAlgorithm
+
+*% Print quality, sent as the HP-GL/2 QL instruction in the picture header.
+*% Note this is HP-GL/2, not PJL - this device exposes no PJL quality
+*% variables at all, which is what makes it look at first as though quality
+*% cannot be driven from the host. Per the spec a device "might vary paper
+*% speed, resolution, or rasterization algorithms" in response, i.e. this is
+*% the control over how many passes the head makes, and so over how much
+*% banding shows. HP's own Windows driver sends QL51.
+*% Printer means send nothing and leave the front panel in charge, which is
+*% the historical behaviour of this driver.
+*OpenUI *QualityLevel/Print Quality: PickOne
+*OrderDependency: 10 AnySetup *QualityLevel
+*DefaultQualityLevel: Printer
+*QualityLevel Printer/Use printer front panel: ""
+*QualityLevel Draft/Draft - fastest, least ink: ""
+*QualityLevel Normal/Normal: ""
+*QualityLevel Best/Best - most passes, least banding: ""
+*CloseUI: *QualityLevel
 
 *% Whether the page is split into several Start/End Raster Graphics blocks.
 *% Off - one block for the whole page - is both the default and the form
