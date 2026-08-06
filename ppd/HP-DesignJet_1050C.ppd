@@ -11,7 +11,7 @@
 *% HP RTL Reference Guide (5961-3526).
 *%
 *FormatVersion: "4.3"
-*FileVersion: "1.3.0"
+*FileVersion: "1.3.1"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "HPDJ1050.PPD"
@@ -180,7 +180,7 @@
 
 *OpenUI *Resolution/Print Resolution: PickOne
 *OrderDependency: 10 AnySetup *Resolution
-*DefaultResolution: 300dpi
+*DefaultResolution: 600dpi
 *Resolution 300dpi/300 DPI (Fast): "<</HWResolution[300 300]>>setpagedevice"
 *Resolution 600dpi/600 DPI (Best): "<</HWResolution[600 600]>>setpagedevice"
 *CloseUI: *Resolution
@@ -233,6 +233,34 @@
 *QualityLevel Normal/Normal: ""
 *QualityLevel Best/Best - most passes, least banding: ""
 *CloseUI: *QualityLevel
+
+*% Whether to hand the device the image size and the area it should cover
+*% and let it resample (ESC*r3A), rather than placing our pixels one for
+*% one (ESC*r1A). Scaling lets the firmware own the mapping from our rows
+*% onto its own dot rows, so it can line that up with the swaths it is
+*% about to lay down; a 1:1 placement gives it no such freedom and shows as
+*% banding across smooth gradients. Confirmed on the hardware - the same
+*% photograph bands unscaled and is clean scaled. HP's driver always
+*% scales. Ignored outside RGB, since the spec drops scaling under a
+*% Simple Colour palette.
+*OpenUI *ScaledRaster/Let Printer Scale Raster: Boolean
+*OrderDependency: 10 AnySetup *ScaledRaster
+*DefaultScaledRaster: True
+*ScaledRaster True/On - printer resamples (recommended): ""
+*ScaledRaster False/Off - send pixels one for one: ""
+*CloseUI: *ScaledRaster
+
+*% Whether to tell the device it may print as data arrives (ESC&a1N).
+*% Doing so bounds its memory use, but forces it to commit each swath
+*% immediately instead of arranging passes over the whole page - HP's own
+*% driver never sends it. Off by default; turn on only if a very large job
+*% exhausts the device.
+*OpenUI *OnTheFly/Print While Receiving: Boolean
+*OrderDependency: 10 AnySetup *OnTheFly
+*DefaultOnTheFly: False
+*OnTheFly False/Off - let the printer compose the page: ""
+*OnTheFly True/On - print as data arrives: ""
+*CloseUI: *OnTheFly
 
 *% Whether the page is split into several Start/End Raster Graphics blocks.
 *% Off - one block for the whole page - is both the default and the form
