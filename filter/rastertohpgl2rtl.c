@@ -149,7 +149,17 @@ static int quality_level = -1;
  * This only applies when the printer is doing the screening, i.e. in RGB
  * mode. HP's Windows driver sends 13.
  */
-static int render_algorithm = -1;
+static int render_algorithm = 13;  /* must match DefaultRenderAlgorithm in the PPD */
+
+/* Whether to disable negative motion (ESC&a1N) so the device prints as
+ * data arrives. See where it is emitted for why this defaults to off. */
+static int on_the_fly;
+
+/* Hand the device the image size and the area to fit it into, and let it
+ * resample, rather than placing our pixels one for one. See where it is
+ * emitted. RGB only - scaling is ignored under a Simple Colour palette.
+ * Must match DefaultScaledRaster in the PPD. */
+static int scaled_raster = 1;
 
 static FILE *out; /* Where printer bytes go: direct socket, or stdout. */
 
@@ -563,7 +573,7 @@ enum color_mode
   MODE_GRAY_K
 };
 
-static enum color_mode color_mode = MODE_KCMY;
+static enum color_mode color_mode = MODE_RGB;   /* must match DefaultColorModel in the PPD */
 
 /* 0 = ordered (Bayer), 1 = Floyd-Steinberg. See dither_plane_ordered()
  * for why ordered is the default despite being the grainier of the two. */
@@ -825,9 +835,37 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
    * the whole decompressed image at once, avoiding that ceiling. We only
    * ever send raster top-to-bottom in one pass, so disabling negative
    * motion is safe - we never need to move the CAP backwards. */
-  fprintf(out, "\033&a1N");
-  fprintf(out, "\033*r%uS", width);
-  fprintf(out, "\033*t%dR", (int)lround(xres));
+  /* Negative Motion. Disabling it (1) lets the device print as data
+   * arrives, which bounds its memory use - but it also forces it to commit
+   * each swath immediately, so it cannot arrange passes over the page as a
+   * whole. HP's own driver does not send this at all, letting the device
+   * compose first and lay the passes out as it sees fit, which is likely to
+   * matter most at high quality on photographs. Off by default now; the
+   * memory worry it was added for turned out to be a swapped PS parameter,
+   * not memory. */
+  if (on_the_fly)
+    fprintf(out, "\033&a1N");
+  int scaling = scaled_raster && planes_for_mode(color_mode) == 0;
+  if (scaling)
+  {
+    /* Scaled raster: declare the image in pixels and the area it should
+     * cover in decipoints, and let the device resample. HP's driver works
+     * this way. The appeal is that the firmware then owns the mapping from
+     * our rows onto its dot rows, and can line that up with the swaths it
+     * is about to print - which a 1:1 placement cannot do. Graphics
+     * resolution is ignored in this mode, so it is not sent.
+     *
+     * Only meaningful with contone data: the spec says raster scaling is
+     * ignored under a Simple Colour KCMY palette. */
+    fprintf(out, "\033*r%us%uT", width, height);
+    fprintf(out, "\033*t%.0fh%.0fV", width / xres * 720.0,
+            height / yres * 720.0);
+  }
+  else
+  {
+    fprintf(out, "\033*r%uS", width);
+    fprintf(out, "\033*t%dR", (int)lround(xres));
+  }
 
   int nplanes = planes_for_mode(color_mode);
   size_t planebytes = (width + 7) / 8;
@@ -958,7 +996,7 @@ emit_page(cups_raster_t *ras, cups_page_header2_t *header, int page_num)
     if (band_end > height)
       band_end = height;
 
-    fprintf(out, "\033*r1A");   /* Start raster graphics at CAP, unscaled. */
+    fprintf(out, "\033*r%dA", scaling ? 3 : 1);  /* Start raster at CAP. */
 
     /* Start Raster Graphics zeroes every seed row and resets the
      * compression method to 0, so both have to be re-established per
@@ -1179,6 +1217,14 @@ main(int argc, char *argv[])
 
     /* Banding picks a preset; BandBytes overrides it with an exact figure
      * for tuning. Both are escape hatches - the default is no splitting. */
+    const char *sc = cupsGetOption("ScaledRaster", num_options, options);
+    if (sc)
+      scaled_raster = (!strcasecmp(sc, "true") || !strcasecmp(sc, "on"));
+
+    const char *otf = cupsGetOption("OnTheFly", num_options, options);
+    if (otf && (!strcasecmp(otf, "true") || !strcasecmp(otf, "on")))
+      on_the_fly = 1;
+
     const char *ra = cupsGetOption("RenderAlgorithm", num_options, options);
     if (ra && strcasecmp(ra, "Printer") != 0)
     {

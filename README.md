@@ -86,7 +86,9 @@ around 100 KB, and its lines are drawn rather than built out of dots.
   image should be rotated. Selecting one keeps the image unrotated. Sizes
   whose rotated width would exceed the 36 in carriage (A0, ANSI E, Arch E)
   have no landscape variant.
-- **Resolution** — 300 or 600 dpi.
+- **Resolution** — 600 dpi by default, matching the device's native grid
+  and what HP's driver sends. 300 dpi is available and roughly quarters the
+  data, which is worth having on very large sheets.
 - **Print Quality** — `QL` in the HP-GL/2 picture header: `Draft`, `Normal`,
   `Best`, or `Printer` (default) to leave the front panel in charge. Draft
   is visibly coarser on this device, so the instruction is definitely
@@ -109,6 +111,13 @@ around 100 KB, and its lines are drawn rather than built out of dots.
   Applied as a 256-entry lookup table using the transfer function HP's
   reference guide specifies for this printer family. HP suggests ~2.5 for a
   DesignJet on HP Special Paper.
+- **Let Printer Scale Raster** — `On` by default. Declares the image size
+  and the area it should fill and lets the device resample, instead of
+  placing pixels one for one. This is what keeps smooth gradients from
+  banding; see *Hardware quirks*. `RGB` only.
+- **Print While Receiving** — `Off` by default, letting the device compose
+  the page before printing rather than committing each swath as it
+  arrives. Turn on only if a very large job exhausts it.
 - **Raster Banding** — `Off` by default, meaning the page goes as a single
   raster block. Only raise this if a very large job loses its bottom edge;
   splitting costs visible seams (see *Hardware quirks*). `-o BandBytes=N`
@@ -181,6 +190,15 @@ These cost real time to find, and the code comments point back here.
   dither pattern does not line up across them. Anything screened in the
   driver shows horizontal banding on flat tone that screening in the device
   does not.
+- **Placing raster pixels one for one bands on gradients.** With
+  `ESC*r1A` the device takes the pixels exactly as given and has no freedom
+  in how they land relative to the swaths it prints, which shows as regular
+  horizontal banding across smooth tone. Declaring the image size and the
+  area to fill instead, and starting with `ESC*r3A` so the device
+  resamples, lets the firmware line its own dot rows up with those swaths.
+  The same photograph bands one way and is clean the other; HP's driver
+  always scales. Flat fills happen not to expose this, which is why it
+  survived several rounds of banding work that only tested flat tone.
 - **The stock CUPS socket backend is slow to this printer.** Its small,
   unbuffered writes hit the classic Nagle/delayed-ACK stall against the old
   JetDirect TCP stack. The filter therefore opens its own connection to
