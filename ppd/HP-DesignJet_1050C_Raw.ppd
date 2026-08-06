@@ -9,7 +9,7 @@
 *% smaller jobs, sharper lines than the general rastertohpgl2rtl queue.
 *%
 *FormatVersion: "4.3"
-*FileVersion: "1.2.2"
+*FileVersion: "1.3.0"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "HPDJRAW.PPD"

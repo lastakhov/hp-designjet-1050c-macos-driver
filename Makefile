@@ -17,7 +17,7 @@ RAW_QUEUE  = HP-DesignJet-1050C-Raw
 PRINTER_IP ?= 192.168.1.100
 
 PKG_ID      = com.local.hpdesignjet1050c
-PKG_VERSION = 1.2.2
+PKG_VERSION = 1.3.0
 PKG_ROOT    = build/pkgroot
 PKG_OUT     = build/HP-DesignJet-1050C-Driver.pkg
 

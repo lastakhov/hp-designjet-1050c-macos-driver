@@ -87,17 +87,24 @@ around 100 KB, and its lines are drawn rather than built out of dots.
   whose rotated width would exceed the 36 in carriage (A0, ANSI E, Arch E)
   have no landscape variant.
 - **Resolution** — 300 or 600 dpi.
-- **Color Mode** — `KCMY` (default) separates colour in the driver and sends
-  four 1-bit planes, so black prints with black ink. `RGB` sends 24-bit
-  colour and lets the printer decide how to lay ink down, which is what the
-  driver used to do. `Gray` sends a single black plane. See *Colour
-  separation* below for the trade-off.
+- **Print Quality** — `QL` in the HP-GL/2 picture header: `Draft`, `Normal`,
+  `Best`, or `Printer` (default) to leave the front panel in charge. Draft
+  is visibly coarser on this device, so the instruction is definitely
+  honoured.
+- **Color Mode** — `RGB` (default) sends contone colour and lets the device
+  screen it, which gives both clean black and clean flat tone. `KCMY`
+  separates in the driver and sends four 1-bit planes for explicit control
+  over ink placement, at the cost of banding on flat areas. `Gray` sends a
+  single black plane. See *Colour and halftoning* below.
+- **Printer Halftone** — which screen the device applies to contone data,
+  `13` (scatter dither) by default, matching HP's own driver. Leaving this
+  unset is what made black look muddy in earlier versions. `RGB` only.
 - **Black Generation** — how much of a neutral is printed with black ink
   rather than mixed from CMY: `Full` (default, best for line work) through
   `Heavy`, `Medium` and `Light` (richer photographic shadows). Pure black
   stays pure black ink at every setting. `KCMY` only.
-- **Halftone Method** — `Ordered` (default) or `Diffusion`. Applies to the
-  separated modes; in `RGB` the printer does its own halftoning.
+- **Halftone Method** — the driver's own dither, `Ordered` (default) or
+  `Diffusion`. `KCMY` and `Gray` only; in `RGB` the device screens instead.
 - **Ink Density (Gamma)** — driver-side gamma, 0.6 (most ink) to 3.0 (least).
   Applied as a 256-entry lookup table using the transfer function HP's
   reference guide specifies for this printer family. HP suggests ~2.5 for a
@@ -109,15 +116,17 @@ around 100 KB, and its lines are drawn rather than built out of dots.
 
 Which options actually do anything depends on the colour mode:
 
-| | Black Generation | Halftone Method | Ink Density |
-| --- | --- | --- | --- |
-| `KCMY` | yes | yes | yes |
-| `Gray` | no | yes | yes |
-| `RGB` | no | no | yes |
+| | Black Generation | Halftone Method | Printer Halftone | Ink Density |
+| --- | --- | --- | --- | --- |
+| `RGB` | no | no | **yes** | yes |
+| `KCMY` | yes | yes | no | yes |
+| `Gray` | no | yes | no | yes |
 
 `Gray` ignores black generation because it has a single black plane and no
-chromatic channels to move a grey component out of. `RGB` ignores both
-because separation and halftoning are left to the printer.
+chromatic channels to move a grey component out of. `RGB` ignores both the
+driver's separation and its dither, because it hands that work to the
+device — and correspondingly it is the only mode where Printer Halftone
+does anything. Print Quality and Media Size apply everywhere.
 
 ## Hardware quirks worth knowing
 
@@ -158,6 +167,20 @@ These cost real time to find, and the code comments point back here.
   otherwise sit off the page. This only bites the raw queue; the
   rasterising queue is unaffected, because macOS lays the page out and the
   driver ships a finished bitmap. See `examples/`.
+- **Print quality lives in HP-GL/2, not PJL.** This device answers PJL
+  `INFO ID` and `INFO CONFIG` but returns `"?"` for `INFO VARIABLES` and
+  ignores `DINQUIRE` for every quality-related variable, which makes it look
+  as though quality cannot be driven from the host at all. It can — through
+  the HP-GL/2 `QL` instruction in the picture header.
+- **Naming the halftone matters.** Sending contone RGB without `ESC*t#J`
+  leaves the device on a default screen that renders black muddy and
+  cyan-tinged. Asking for scatter dither explicitly, as HP's driver does,
+  fixes it.
+- **A host-side dither bands; the device's does not.** The head lays down a
+  swath at a time and a driver cannot know where those swaths fall, so its
+  dither pattern does not line up across them. Anything screened in the
+  driver shows horizontal banding on flat tone that screening in the device
+  does not.
 - **The stock CUPS socket backend is slow to this printer.** Its small,
   unbuffered writes hit the classic Nagle/delayed-ACK stall against the old
   JetDirect TCP stack. The filter therefore opens its own connection to
@@ -181,60 +204,59 @@ These cost real time to find, and the code comments point back here.
   overall. Mixing is safe because the seed row is updated by any row-based
   transfer.
 
-## Colour separation
+## Colour and halftoning
 
 Left to itself this plotter composites black out of cyan, magenta and
-yellow instead of using the black cartridge, so black text and line work
-came out muddy, cyan-tinged and three times more expensive in ink. The
-default `KCMY` mode fixes that by separating in the driver: convert to CMY,
-pull the shared grey component into a real K channel, dither each channel
-to one bit, and send four planes through the Simple Colour KCMY palette.
-Confirmed on hardware — black now prints as black ink.
+yellow instead of using the black cartridge, so black text came out muddy
+and cyan-tinged. The fix turned out not to be where it first appeared.
 
-Two things about this are worth knowing before assuming it is a pure win.
+The driver now sends contone RGB and asks the device to screen it, naming
+the halftone explicitly with `ESC*t#J` (scatter dither, which is what HP's
+own Windows driver selects). That gives clean black **and** clean flat
+tone. Leaving the halftone unspecified — which this driver did originally —
+is what produced the muddy black that started the whole investigation.
 
-**It does not make jobs smaller.** Four bits per pixel beats twenty-four
-before compression, but dithering destroys the compressibility that contone
-RGB enjoys, and four planes cost four transfer commands per row instead of
-one:
+The alternative, `ColorModel=KCMY`, separates in the driver instead:
+convert to CMY, pull the shared grey component into a real K channel,
+dither each channel to one bit, and send four planes through the Simple
+Colour KCMY palette. It also produces clean black, and it is kept because
+it gives explicit control over exactly which ink lands where. But it is no
+longer the default, for one decisive reason.
 
-| Page | RGB | KCMY (ordered) |
+**Dithering in the driver bands on flat tone.** The device prints a swath
+at a time, and a host-side dither cannot know where those swaths fall, so
+its pattern does not line up across them. Printing the same flat greys
+both ways makes it obvious: separated output shows horizontal banding,
+printer-screened output does not. HP's driver never hits this because it
+does not rasterize flat fills at all — a captured job shows zero raster
+commands and pure HP-GL/2 polygons, leaving every halftoning decision to
+the firmware.
+
+That last point also bounds what this driver can do. By the time CUPS
+hands over a page the vectors are gone and only a bitmap remains, so the
+fully vector path is not reachable from a raster filter — it would need a
+different filter chain that takes PDF directly.
+
+`KCMY` is still worth choosing when ink placement matters more than smooth
+tone, and it costs nothing on pure black-and-white artwork, where every
+pixel is 0 or 255 and dithering does nothing. Note it also does not make
+jobs smaller — four bits per pixel beats twenty-four before compression,
+but dithering destroys the compressibility contone RGB enjoys:
+
+| Page | RGB | KCMY |
 | --- | --- | --- |
 | A3 line art | 74 KB | 111 KB |
 | Full midtones | 42 KB | 158 KB |
 | Mixed content | 92 KB | 83 KB |
 
-Separated output is larger on flat art and smaller only on dense
-photographs, where there was little to compress either way.
-
-**It costs tonal resolution, though not spatial.** Average tone over one
-8×8 dither cell is accurate to within 0.9/255, but only 65 distinct levels
-survive per cell against 256 in contone, and a cell is 0.68 mm at 300 dpi
-or 0.34 mm at 600 dpi. Content that is already pure black, white or fully
-saturated — drawings, text, CAD, spot colour — reproduces exactly, so for
-this plotter's main use there is no loss at all. Photographs lose tonal
-resolution and may look better at 600 dpi, with `Dither=Diffusion`, or in
-`ColorModel=RGB`.
-
-Ordered dithering is the default over error diffusion on measurement, not
-taste: its threshold pattern repeats every 8 pixels, which is exactly one
-packed byte, so flat areas collapse under Packbits. Error diffusion turns
-the same areas into incompressible noise — 1108 KB against 158 KB on a
-full-page gradient.
-
-How much of a neutral goes to black ink is adjustable with **Black
-Generation**. `Full` sends every neutral to K, which is what line work
-wants. Softer settings hold black back in the lighter tones and let CMY
-carry them, which stops photographic shadows going flat.
-
-The softer settings raise the tone at which black *starts* rather than
-scaling black down. That distinction matters: simply multiplying K by some
-factor below 1 would put coloured ink back underneath pure black text and
-undo the thing this was written to fix. Raising the start point instead
-leaves a fully saturated neutral mapping to K=255 at every setting, so
-black stays pure black however far the setting is backed off — verified
-end-to-end by decoding a rendered page and checking that none of its
-23,448 solid-black bytes carry colour underneath, at any setting.
+Within `KCMY`, ordered dithering is the default over error diffusion on
+measured size, not taste: its threshold pattern repeats every 8 pixels,
+exactly one packed byte, so flat areas collapse under Packbits, while
+error diffusion turns them into incompressible noise — 1108 KB against
+158 KB on a full-page gradient. Black generation defaults to full grey
+component replacement; backing it off raises the tone at which black
+starts rather than scaling black down, so pure black stays pure black ink
+at every setting.
 
 ## Development
 
